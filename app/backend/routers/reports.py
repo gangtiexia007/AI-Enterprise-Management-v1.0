@@ -167,3 +167,37 @@ def get_token_usage(days: int = 7, db: Session = Depends(get_db)):
     total_tokens = sum(r.total_tokens for r in records)
     total_cost = sum(r.cost for r in records)
     return {"total_tokens": total_tokens, "total_cost": total_cost, "record_count": len(records)}
+
+
+@router.get("/token-budget")
+def get_token_budget():
+    from harness.token_budget import token_budget_manager
+    return {
+        "monthly": token_budget_manager.get_or_create_monthly(),
+        "daily": token_budget_manager.get_or_create_daily(),
+    }
+
+
+@router.put("/token-budget")
+def update_token_budget(data: dict, db: Session = Depends(get_db)):
+    from models import Setting
+    if "monthly" in data:
+        s = db.query(Setting).filter(Setting.key == "token_budget_monthly").first()
+        if s:
+            s.value = str(data["monthly"])
+        else:
+            db.add(Setting(key="token_budget_monthly", value=str(data["monthly"])))
+    if "daily" in data:
+        s = db.query(Setting).filter(Setting.key == "token_budget_daily").first()
+        if s:
+            s.value = str(data["daily"])
+        else:
+            db.add(Setting(key="token_budget_daily", value=str(data["daily"])))
+    db.commit()
+    return {"message": "Budget updated"}
+
+
+@router.get("/token-usage-summary")
+def get_token_usage_summary(days: int = 30):
+    from harness.token_budget import token_budget_manager
+    return token_budget_manager.get_usage_summary(days)

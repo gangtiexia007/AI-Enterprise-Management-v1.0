@@ -359,4 +359,79 @@ class AgentSkillCreate(BaseModel):
     skill_id: int
 
 
+# ---------- Scheduled Task ----------
+
+class ScheduledTaskBase(BaseModel):
+    name: str
+    task_type: str
+    cron_expression: str = ""
+    enabled: int = 1
+    config: str = "{}"
+
+class ScheduledTaskCreate(ScheduledTaskBase): pass
+class ScheduledTaskUpdate(BaseModel):
+    name: Optional[str] = None
+    cron_expression: Optional[str] = None
+    enabled: Optional[int] = None
+    config: Optional[str] = None
+
+class ScheduledTaskOut(ScheduledTaskBase):
+    id: int
+    last_run: Optional[datetime] = None
+    next_run: Optional[datetime] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+# ---------- Memory Entry ----------
+
+class MemoryEntryOut(BaseModel):
+    id: int
+    level: int
+    title: str
+    content: str
+    source_type: str
+    confidence: float
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+# ---------- Token Budget ----------
+
+class TokenBudgetOut(BaseModel):
+    id: int
+    period: str
+    period_type: str
+    budget_tokens: int
+    used_tokens: int
+    budget_cost: float
+    used_cost: float
+    alert_sent: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class TokenBudgetUpdate(BaseModel):
+    budget_tokens: Optional[int] = None
+    budget_cost: Optional[float] = None
+
+
+# ---------- Team ----------
+
+class TeamBase(BaseModel):
+    name: str
+    description: str = ""
+    leader_id: Optional[int] = None
+    feishu_chat_id: str = ""
+
+class TeamCreate(TeamBase): pass
+class TeamOut(TeamBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
 GoalOut.model_rebuild()

@@ -28,5 +28,5 @@ async def kpi_summary(db_session=None, **kwargs) -> ToolResult:
 )
 async def calculate_kpi(db_session=None, **kwargs) -> ToolResult:
     from harness.rules_engine import calculate_kpi_scores
-    updated = calculate_kpi_scores()
+    updated = calculate_kpi_scores(db_session)
     return ToolResult(success=True, data={"message": f"已重新计算 {updated} 条 KPI 记录"})

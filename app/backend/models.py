@@ -255,3 +255,59 @@ class AgentSkill(Base):
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False)
+
+
+# ---------- Scheduled Tasks ----------
+
+class ScheduledTask(Base):
+    __tablename__ = "scheduled_tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)
+    task_type = Column(String(100), nullable=False)  # daily_report, weekly_report, monthly_report, coaching, memory_distill, kpi_alert
+    cron_expression = Column(String(100), default="")  # human-readable: "09:00", "每周一09:00" etc
+    enabled = Column(Integer, default=1)
+    last_run = Column(DateTime, nullable=True)
+    next_run = Column(DateTime, nullable=True)
+    config = Column(Text, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------- Memory Entries (L4 distilled) ----------
+
+class MemoryEntry(Base):
+    __tablename__ = "memory_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    level = Column(Integer, default=4)  # 4=distilled patterns, 2=summaries
+    title = Column(String(300), default="")
+    content = Column(Text, default="")
+    source_type = Column(String(100), default="conversation")  # conversation, task, feedback
+    source_ids = Column(Text, default="")  # JSON list of source conversation IDs
+    confidence = Column(Float, default=0.8)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------- Token Budget ----------
+
+class TokenBudget(Base):
+    __tablename__ = "token_budget"
+    id = Column(Integer, primary_key=True, index=True)
+    period = Column(String(20), nullable=False)  # "2026-04", "2026-04-09"
+    period_type = Column(String(10), default="monthly")  # daily / monthly
+    budget_tokens = Column(Integer, default=0)
+    used_tokens = Column(Integer, default=0)
+    budget_cost = Column(Float, default=0)
+    used_cost = Column(Float, default=0)
+    alert_sent = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------- Teams ----------
+
+class Team(Base):
+    __tablename__ = "teams"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    leader_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    feishu_chat_id = Column(String(200), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)

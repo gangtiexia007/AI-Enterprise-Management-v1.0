@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
 from routers import tasks, goals, kpi, knowledge, settings, agent, employees, reports, approvals, audit_logs, coaching
-from routers import agent_admin
+from routers import agent_admin, scheduled_tasks, teams
 
 
 @asynccontextmanager
@@ -41,6 +41,8 @@ app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-logs"])
 app.include_router(coaching.router, prefix="/api/coaching", tags=["coaching"])
+app.include_router(scheduled_tasks.router, prefix="/api/scheduled-tasks", tags=["scheduled-tasks"])
+app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
 
 
 @app.get("/api/health")

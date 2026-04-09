@@ -58,11 +58,16 @@ class AgentLoop:
             if s:
                 custom_prompt = s.value
 
+            industry = ""
+            ind_s = db_session.query(Setting).filter(Setting.key == "industry_preset").first()
+            if ind_s:
+                industry = ind_s.value
+
             if agent_mode == "command":
                 return await self._command_mode(user_message, db_session)
 
             role = self._infer_role(user_message)
-            system_prompt = build_system_prompt(role, custom_prompt)
+            system_prompt = build_system_prompt(role, custom_prompt, industry=industry)
 
             tool_schemas = []
             max_perm = 0 if agent_mode == "light" else 4
@@ -156,13 +161,25 @@ class AgentLoop:
             "/团队进度": "team_progress",
             "/日报": "daily_report",
             "/催办": "urge_overdue",
+            "/本周数据": "weekly_data",
         }
-        skill_name = cmd_map.get(message.strip())
+
+        text = message.strip()
+
+        if text.startswith("/评分"):
+            parts = text.split(maxsplit=1)
+            name = parts[1].strip() if len(parts) > 1 else ""
+            if not name:
+                return "用法: /评分 <员工姓名>"
+            result = await skill_registry.execute("employee_score", {"employee_name": name}, db_session=db_session)
+            return result.to_str()
+
+        skill_name = cmd_map.get(text)
         if skill_name:
             result = await skill_registry.execute(skill_name, {}, db_session=db_session)
             return result.to_str()
         available = "\n".join([f"  {cmd}" for cmd in cmd_map.keys()])
-        return f"可用命令:\n{available}\n\n切换到 Light/Full 模式以使用 AI 对话。"
+        return f"可用命令:\n{available}\n  /评分 <姓名>\n\n切换到 Light/Full 模式以使用 AI 对话。"
 
     def _infer_role(self, message: str) -> str:
         msg = message.lower()

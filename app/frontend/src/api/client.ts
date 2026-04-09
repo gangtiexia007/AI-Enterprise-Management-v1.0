@@ -303,3 +303,53 @@ export const updateSkill = (id: number, data: Partial<SkillItem>) => api.put<Ski
 export const deleteSkill = (id: number) => api.del(`/agent/skills/${id}`);
 export const toggleSkill = (id: number) => api.post<{ id: number; name: string; enabled: number }>(`/agent/skills/${id}/toggle`);
 export const testSkill = (id: number) => api.get<{ skill: string; success: boolean; data: unknown; error: string | null }>(`/agent/skills/${id}/test`);
+
+/* ---------- Token Budget ---------- */
+
+export interface TokenBudgetInfo {
+  period: string;
+  budget_tokens: number;
+  used_tokens: number;
+  remaining: number;
+  usage_pct: number;
+  alert_sent?: number;
+}
+
+export const getTokenBudget = () => api.get<{ monthly: TokenBudgetInfo; daily: TokenBudgetInfo }>('/reports/token-budget');
+export const updateTokenBudget = (data: { monthly?: number; daily?: number }) =>
+  api.put('/reports/token-budget', data);
+export const getTokenUsageSummary = (days?: number) =>
+  api.get<{ total_tokens: number; record_count: number; by_model: Record<string, number>; by_endpoint: Record<string, number> }>(`/reports/token-usage-summary${days ? `?days=${days}` : ''}`);
+
+/* ---------- Scheduled Tasks ---------- */
+
+export interface ScheduledTask {
+  id: number;
+  name: string;
+  task_type: string;
+  cron_expression: string;
+  enabled: number;
+  last_run?: string;
+  next_run?: string;
+  config?: string;
+  created_at?: string;
+}
+
+export const getScheduledTasks = () => api.get<ScheduledTask[]>('/scheduled-tasks');
+export const toggleScheduledTask = (id: number) => api.post<{ id: number; name: string; enabled: number }>(`/scheduled-tasks/${id}/toggle`);
+export const runScheduledTask = (id: number) => api.post<{ message: string }>(`/scheduled-tasks/${id}/run`);
+
+/* ---------- Teams ---------- */
+
+export interface TeamItem {
+  id: number;
+  name: string;
+  description?: string;
+  leader_id?: number;
+  feishu_chat_id?: string;
+  created_at?: string;
+}
+
+export const getTeams = () => api.get<TeamItem[]>('/teams');
+export const createTeam = (data: Partial<TeamItem>) => api.post<TeamItem>('/teams', data);
+export const deleteTeam = (id: number) => api.del(`/teams/${id}`);

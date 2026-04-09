@@ -67,6 +67,7 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{task_id}/dispatch", response_model=TaskOut)
 def dispatch_task(task_id: int, db: Session = Depends(get_db)):
+    from models import Employee
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -74,6 +75,22 @@ def dispatch_task(task_id: int, db: Session = Depends(get_db)):
     task.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(task)
+
+    if task.assignee_id:
+        emp = db.query(Employee).filter(Employee.id == task.assignee_id).first()
+        if emp and emp.feishu_id:
+            try:
+                from harness.feishu_client import feishu_client
+                feishu_client.send_task_notification(
+                    emp.feishu_id,
+                    task.title,
+                    description=task.description or "",
+                    deadline=str(task.deadline) if task.deadline else "",
+                    assignee=emp.name,
+                )
+            except Exception:
+                pass
+
     return task
 
 

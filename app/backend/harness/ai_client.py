@@ -45,12 +45,29 @@ class AIClient:
         finally:
             db.close()
 
+    def _should_degrade(self) -> bool:
+        try:
+            from harness.token_budget import token_budget_manager
+            return token_budget_manager.should_degrade_model()
+        except Exception:
+            return False
+
+    def _post_usage_tracking(self, tokens: int):
+        try:
+            from harness.token_budget import token_budget_manager
+            token_budget_manager.record_usage(tokens)
+        except Exception:
+            pass
+
     async def chat(self, messages: list, model: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2000) -> str:
         cfg = self._get_config()
         if not cfg["api_key"]:
             return "AI 模型尚未配置，请在设置中填写 API Key。"
 
         target_model = model or cfg["model_primary"]
+        if not model and self._should_degrade():
+            target_model = cfg["model_fallback"]
+            logger.info(f"Budget degradation: using fallback model {target_model}")
         try:
             result = await self._call_api(cfg["base_url"], cfg["api_key"], target_model, messages, temperature, max_tokens)
             return result
@@ -76,7 +93,9 @@ class AIClient:
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
             usage = data.get("usage", {})
+            total = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
             self._record_usage(model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+            self._post_usage_tracking(total)
             return content
 
     async def chat_with_tools(self, messages: list, tools: Optional[list] = None, model: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2000) -> dict:
@@ -89,6 +108,8 @@ class AIClient:
             return {"type": "text", "content": "AI 模型尚未配置，请在设置中填写 API Key。"}
 
         target_model = model or cfg["model_primary"]
+        if not model and self._should_degrade():
+            target_model = cfg["model_fallback"]
         body: dict = {
             "model": target_model,
             "messages": messages,
@@ -111,7 +132,9 @@ class AIClient:
                 choice = data["choices"][0]
                 msg = choice["message"]
                 usage = data.get("usage", {})
+                total_toks = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
                 self._record_usage(target_model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
+                self._post_usage_tracking(total_toks)
 
                 if msg.get("tool_calls"):
                     return {"type": "tool_calls", "tool_calls": msg["tool_calls"]}
