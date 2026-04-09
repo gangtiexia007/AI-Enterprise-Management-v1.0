@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Settings as SettingsIcon, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { getSettings, updateSetting, initSettings, type Setting } from '../api/client';
 
 type TabId = 'general' | 'model' | 'feishu' | 'prompt';
@@ -72,18 +72,19 @@ export default function Settings() {
     setTimeout(() => setSavedKey(null), 1500);
   };
 
+  const inputCls = "flex-1 rounded-btn border border-border bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[13px] text-txt-2 placeholder:text-txt-4 focus:border-accent/40 focus:outline-none transition-colors";
+
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        {/* Tab bar */}
-        <div className="border-b border-gray-200 px-4 bg-gray-50/50">
+      <div className="rounded-card border border-border overflow-hidden">
+        <div className="border-b border-border px-4">
           <div className="flex gap-0">
             {TABS.map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-4 py-3 text-[13px] font-medium border-b-2 transition-colors ${
                   activeTab === tab.id
-                    ? 'border-brand-500 text-brand-700'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-accent-light text-accent-light'
+                    : 'border-transparent text-txt-4 hover:text-txt-2'
                 }`}>
                 {tab.label}
               </button>
@@ -91,43 +92,37 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-5">
           {loading ? (
-            <div className="text-center py-8 text-gray-400">加载中...</div>
+            <div className="text-center py-8 text-txt-4 text-[13px]">加载中...</div>
           ) : (
             <div className="space-y-5 max-w-xl">
               {FIELD_DEFS[activeTab].map((field) => (
                 <div key={field.key}>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">{field.label}</label>
+                  <label className="block text-[12px] font-medium text-txt-3 mb-1.5">{field.label}</label>
                   <div className="flex gap-2">
                     {field.type === 'textarea' ? (
                       <textarea
-                        value={settings[field.key] || ''}
-                        onChange={(e) => setSettings({...settings, [field.key]: e.target.value})}
-                        placeholder={field.placeholder}
-                        rows={6}
-                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                        value={settings[field.key] || ''} onChange={(e) => setSettings({...settings, [field.key]: e.target.value})}
+                        placeholder={field.placeholder} rows={6} className={inputCls}
                       />
                     ) : (
                       <input
-                        type={field.type || 'text'}
-                        value={settings[field.key] || ''}
+                        type={field.type || 'text'} value={settings[field.key] || ''}
                         onChange={(e) => setSettings({...settings, [field.key]: e.target.value})}
-                        placeholder={field.placeholder}
-                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                        placeholder={field.placeholder} className={inputCls}
                       />
                     )}
                     <button onClick={() => saveSetting(field.key)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 flex-shrink-0">
-                      {savedKey === field.key ? <Check className="w-4 h-4 text-green-600" /> : '保存'}
+                      className="px-3 py-1.5 text-[13px] border border-border rounded-btn text-txt-3 hover:bg-[rgba(255,255,255,0.04)] flex-shrink-0 transition-colors">
+                      {savedKey === field.key ? <Check className="w-4 h-4 text-emerald" /> : '保存'}
                     </button>
                   </div>
                 </div>
               ))}
-              <div className="pt-3 border-t border-gray-100">
+              <div className="pt-3 border-t border-border">
                 <button onClick={saveAll}
-                  className="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">
+                  className="px-4 py-2 text-[13px] font-medium bg-accent text-white rounded-btn hover:bg-accent-hover transition-colors">
                   {savedKey === '_all' ? '已保存 ✓' : '保存全部'}
                 </button>
               </div>

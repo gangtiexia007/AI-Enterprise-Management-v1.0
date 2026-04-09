@@ -3,19 +3,45 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter Variable', 'Inter', 'SF Pro Display', '-apple-system', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['Berkeley Mono', 'ui-monospace', 'SF Mono', 'Menlo', 'monospace'],
+      },
       colors: {
-        brand: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+        surface: {
+          0: '#08090a',
+          1: '#0f1011',
+          2: '#191a1b',
+          3: '#28282c',
         },
+        txt: {
+          1: '#f7f8f8',
+          2: '#d0d6e0',
+          3: '#8a8f98',
+          4: '#62666d',
+        },
+        accent: {
+          DEFAULT: '#5e6ad2',
+          light: '#7170ff',
+          hover: '#828fff',
+          muted: '#7a7fad',
+        },
+        border: {
+          subtle: 'rgba(255,255,255,0.05)',
+          DEFAULT: 'rgba(255,255,255,0.08)',
+          solid: '#23252a',
+          mid: '#34343a',
+        },
+        success: '#27a644',
+        emerald: '#10b981',
+      },
+      borderRadius: {
+        micro: '2px',
+        std: '4px',
+        btn: '6px',
+        card: '8px',
+        panel: '12px',
+        pill: '9999px',
       },
     },
   },

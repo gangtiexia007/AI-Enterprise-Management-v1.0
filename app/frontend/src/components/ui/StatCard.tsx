@@ -6,42 +6,37 @@ interface StatCardProps {
   value: string | number;
   subtitle?: string;
   icon?: ReactNode;
-  borderColor?: string;
-  valueColor?: string;
-  iconBg?: string;
   href?: string;
   progress?: number;
-  progressColor?: string;
+  accent?: string;
 }
 
 export default function StatCard({
-  label, value, subtitle, icon, borderColor = 'border-l-blue-500',
-  valueColor = 'text-gray-900', iconBg = 'bg-blue-50 text-blue-600',
-  href, progress, progressColor = 'bg-brand-500',
+  label, value, subtitle, icon, href, progress, accent,
 }: StatCardProps) {
   const content = (
-    <div className={`group rounded-lg border border-gray-200 bg-white pl-4 pr-3 py-4 shadow-sm border-l-4 ${borderColor} hover:shadow-md transition-shadow`}>
+    <div className="group rounded-card border border-border bg-[rgba(255,255,255,0.02)] p-4 hover:bg-[rgba(255,255,255,0.04)] transition-all">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-xs text-gray-500 font-medium mb-1">{label}</div>
-          <div className={`text-2xl font-bold ${valueColor}`}>{value}</div>
+          <div className="text-[12px] font-medium text-txt-3 mb-1.5">{label}</div>
+          <div className={`text-2xl font-semibold tracking-tight ${accent || 'text-txt-1'}`}>{value}</div>
           {progress !== undefined && (
-            <div className="mt-2 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className={`h-full rounded-full ${progressColor} transition-all`}
+            <div className="mt-2.5 h-1 w-full rounded-full bg-[rgba(255,255,255,0.06)] overflow-hidden">
+              <div className="h-full rounded-full bg-accent-light transition-all duration-500"
                 style={{ width: `${Math.min(progress, 100)}%` }} />
             </div>
           )}
         </div>
         {icon && (
-          <span className={`rounded-lg p-2 flex-shrink-0 ${iconBg} group-hover:opacity-90`}>
+          <span className="rounded-card p-2 bg-[rgba(255,255,255,0.04)] text-txt-3 flex-shrink-0 group-hover:text-accent-light transition-colors">
             {icon}
           </span>
         )}
       </div>
-      {subtitle && <div className="text-xs text-gray-400 mt-2">{subtitle}</div>}
+      {subtitle && <div className="text-[11px] text-txt-4 mt-2">{subtitle}</div>}
     </div>
   );
 
-  if (href) return <Link to={href}>{content}</Link>;
+  if (href) return <Link to={href} className="block">{content}</Link>;
   return content;
 }

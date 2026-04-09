@@ -1,45 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+html {
+  color-scheme: dark;
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
-    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', 'Roboto', sans-serif;
+  font-feature-settings: "cv01", "ss03";
+  background: #08090a;
+  color: #f7f8f8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-[x-cloak] { display: none !important; }
-
-.nav-group-title {
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
-}
-
-.sidebar-link {
-  transition: all 0.15s ease;
-}
-.sidebar-link:hover {
-  background: rgba(59, 130, 246, 0.08);
-}
-.sidebar-link.active {
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
-  border-right: 2px solid #2563eb;
-}
-
-.stat-card {
-  transition: all 0.15s ease;
-  cursor: pointer;
-}
-.stat-card:hover {
-  border-color: #3b82f6;
+@layer base {
+  ::selection {
+    background: rgba(94, 106, 210, 0.3);
+  }
 }
 
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
   }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #d1d5db;
+    background: rgba(255,255,255,0.08);
     border-radius: 2px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.14);
   }
 }
