@@ -242,3 +242,64 @@ export interface ChatMessage {
 export const chatWithAgent = (content: string) =>
   api.post<ChatMessage>('/agent/chat', { content });
 export const getAgentHistory = () => api.get<ChatMessage[]>('/agent/history');
+
+/* ---------- Agent Admin ---------- */
+
+export interface AgentConfig {
+  id: number;
+  name: string;
+  description: string;
+  model_primary: string;
+  model_fallback: string;
+  system_prompt: string;
+  mode: 'command' | 'light' | 'full';
+  max_tokens: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubAgent {
+  id: number;
+  parent_agent_id?: number;
+  role: string;
+  name: string;
+  description: string;
+  model: string;
+  allowed_tools: string;
+  read_only: number;
+  can_spawn_children: number;
+  system_prompt: string;
+  status: string;
+  created_at: string;
+}
+
+export interface SkillItem {
+  id: number;
+  name: string;
+  type: 'builtin' | 'custom' | 'mcp';
+  description: string;
+  config: string;
+  enabled: number;
+  permission_level: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getAgentConfig = () => api.get<AgentConfig>('/agent/config');
+export const updateAgentConfig = (data: Partial<AgentConfig>) => api.put<AgentConfig>('/agent/config', data);
+
+export const getSubAgents = () => api.get<SubAgent[]>('/agent/sub-agents');
+export const createSubAgent = (data: Partial<SubAgent>) => api.post<SubAgent>('/agent/sub-agents', data);
+export const updateSubAgent = (id: number, data: Partial<SubAgent>) => api.put<SubAgent>(`/agent/sub-agents/${id}`, data);
+export const deleteSubAgent = (id: number) => api.del(`/agent/sub-agents/${id}`);
+
+export const getSkills = (type?: string) => {
+  const qs = type ? `?skill_type=${type}` : '';
+  return api.get<SkillItem[]>(`/agent/skills${qs}`);
+};
+export const createSkill = (data: Partial<SkillItem>) => api.post<SkillItem>('/agent/skills', data);
+export const updateSkill = (id: number, data: Partial<SkillItem>) => api.put<SkillItem>(`/agent/skills/${id}`, data);
+export const deleteSkill = (id: number) => api.del(`/agent/skills/${id}`);
+export const toggleSkill = (id: number) => api.post<{ id: number; name: string; enabled: number }>(`/agent/skills/${id}/toggle`);
+export const testSkill = (id: number) => api.get<{ skill: string; success: boolean; data: unknown; error: string | null }>(`/agent/skills/${id}/test`);

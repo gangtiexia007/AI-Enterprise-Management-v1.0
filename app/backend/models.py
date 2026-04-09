@@ -190,3 +190,68 @@ class TokenUsage(Base):
     cost = Column(Float, default=0)
     endpoint = Column(String(200), default="")
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------- Agent Harness ----------
+
+class AgentMode(str, enum.Enum):
+    COMMAND = "command"
+    LIGHT = "light"
+    FULL = "full"
+
+
+class SkillType(str, enum.Enum):
+    BUILTIN = "builtin"
+    CUSTOM = "custom"
+    MCP = "mcp"
+
+
+class Agent(Base):
+    __tablename__ = "agents"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    model_primary = Column(String(200), default="gpt-4o-mini")
+    model_fallback = Column(String(200), default="gpt-3.5-turbo")
+    system_prompt = Column(Text, default="")
+    mode = Column(SAEnum(AgentMode), default=AgentMode.FULL)
+    max_tokens = Column(Integer, default=4000)
+    status = Column(String(50), default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SubAgentModel(Base):
+    __tablename__ = "sub_agents"
+    id = Column(Integer, primary_key=True, index=True)
+    parent_agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
+    role = Column(String(100), nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    model = Column(String(200), default="")
+    allowed_tools = Column(Text, default="[]")
+    read_only = Column(Integer, default=1)
+    can_spawn_children = Column(Integer, default=0)
+    system_prompt = Column(Text, default="")
+    status = Column(String(50), default="active")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Skill(Base):
+    __tablename__ = "skills"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)
+    type = Column(SAEnum(SkillType), default=SkillType.BUILTIN)
+    description = Column(Text, default="")
+    config = Column(Text, default="{}")
+    enabled = Column(Integer, default=1)
+    permission_level = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AgentSkill(Base):
+    __tablename__ = "agent_skills"
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False)

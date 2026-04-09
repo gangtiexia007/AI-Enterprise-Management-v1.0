@@ -9,6 +9,7 @@ import Settings from './pages/Settings';
 import Employees from './pages/Employees';
 import Approvals from './pages/Approvals';
 import AuditLogs from './pages/AuditLogs';
+import Agent from './pages/Agent';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/employees" element={<Employees />} />
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit-logs" element={<AuditLogs />} />
+        <Route path="/agent" element={<Agent />} />
       </Route>
     </Routes>
   );

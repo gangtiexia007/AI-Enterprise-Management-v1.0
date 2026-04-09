@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ListTodo, Target, BarChart3, BookOpen, Settings, Users, CheckCircle, FileText, Menu, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Target, BarChart3, BookOpen, Settings, Users, CheckCircle, FileText, Menu, MessageCircle, Bot } from 'lucide-react';
 import ChatDrawer from './ChatDrawer';
 
 const NAV_GROUPS = [
@@ -18,6 +18,12 @@ const NAV_GROUPS = [
     links: [
       { to: '/kpi', label: 'KPI 绩效', icon: BarChart3 },
       { to: '/employees', label: '员工管理', icon: Users },
+    ],
+  },
+  {
+    group: 'Agent 系统',
+    links: [
+      { to: '/agent', label: 'Agent 管理', icon: Bot },
     ],
   },
   {

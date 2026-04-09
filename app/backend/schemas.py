@@ -267,4 +267,96 @@ class AuditLogOut(BaseModel):
         from_attributes = True
 
 
+# ---------- Agent Harness ----------
+
+class AgentBase(BaseModel):
+    name: str
+    description: str = ""
+    model_primary: str = "gpt-4o-mini"
+    model_fallback: str = "gpt-3.5-turbo"
+    system_prompt: str = ""
+    mode: str = "full"
+    max_tokens: int = 4000
+    status: str = "active"
+
+class AgentCreate(AgentBase): pass
+class AgentUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    model_primary: Optional[str] = None
+    model_fallback: Optional[str] = None
+    system_prompt: Optional[str] = None
+    mode: Optional[str] = None
+    max_tokens: Optional[int] = None
+    status: Optional[str] = None
+
+class AgentOut(AgentBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SubAgentBase(BaseModel):
+    parent_agent_id: Optional[int] = None
+    role: str
+    name: str
+    description: str = ""
+    model: str = ""
+    allowed_tools: str = "[]"
+    read_only: int = 1
+    can_spawn_children: int = 0
+    system_prompt: str = ""
+    status: str = "active"
+
+class SubAgentCreate(SubAgentBase): pass
+class SubAgentUpdate(BaseModel):
+    role: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    model: Optional[str] = None
+    allowed_tools: Optional[str] = None
+    read_only: Optional[int] = None
+    can_spawn_children: Optional[int] = None
+    system_prompt: Optional[str] = None
+    status: Optional[str] = None
+
+class SubAgentOut(SubAgentBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SkillBase(BaseModel):
+    name: str
+    type: str = "builtin"
+    description: str = ""
+    config: str = "{}"
+    enabled: int = 1
+    permission_level: int = 0
+
+class SkillCreate(SkillBase): pass
+class SkillUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    description: Optional[str] = None
+    config: Optional[str] = None
+    enabled: Optional[int] = None
+    permission_level: Optional[int] = None
+
+class SkillOut(SkillBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class AgentSkillCreate(BaseModel):
+    agent_id: int
+    skill_id: int
+
+
 GoalOut.model_rebuild()
