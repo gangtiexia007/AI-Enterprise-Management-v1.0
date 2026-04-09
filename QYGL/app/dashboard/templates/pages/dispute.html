@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}申诉中心 — 千方百计AI{% endblock %}
+{% block page_title %}申诉中心{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Layer 2: Stats -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <a href="/disputes?status=filed" class="stat-card rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">待处理</div>
+      <div class="text-2xl font-bold text-yellow-600">{{ stats.filed }}</div>
+    </a>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">已解决</div>
+      <div class="text-2xl font-bold text-green-600">{{ stats.resolved }}</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">已推翻</div>
+      <div class="text-2xl font-bold text-red-600">{{ stats.overturned }}</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">总计</div>
+      <div class="text-2xl font-bold text-gray-800">{{ stats.total }}</div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="flex justify-end">
+    <button @click="$dispatch('open-dispute-modal')"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+      提交申诉
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm text-gray-500">状态:</span>
+    <a href="/disputes" class="px-2.5 py-1 text-xs rounded-md border {% if not status_filter %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">全部</a>
+    {% for s in statuses %}
+    <a href="/disputes?status={{ s }}&type={{ type_filter }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if status_filter == s %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">{{ s|zh_dispute_status }}</a>
+    {% endfor %}
+
+    <span class="text-sm text-gray-500 ml-2">类型:</span>
+    <a href="/disputes?status={{ status_filter }}" class="px-2.5 py-1 text-xs rounded-md border {% if not type_filter %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">全部</a>
+    {% for t in types %}
+    <a href="/disputes?status={{ status_filter }}&type={{ t }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if type_filter == t %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">{{ t|zh_dispute_type }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- Layer 3: Dual-column -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4" style="min-height: 500px;">
+
+    <!-- Left: dispute list -->
+    <div class="lg:col-span-2 rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <div class="divide-y divide-gray-100 overflow-y-auto" style="max-height: 600px;">
+        {% if disputes %}
+          {% for d in disputes %}
+          <div hx-get="/disputes/{{ d.id }}" hx-target="#dispute-detail" hx-swap="innerHTML"
+               class="px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors group">
+            <div class="flex items-start justify-between mb-1">
+              <h4 class="text-sm font-medium text-gray-700 group-hover:text-brand-600 truncate flex-1">
+                {{ d.type|zh_dispute_type }} — {{ d.employee_name }}
+              </h4>
+              <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0
+                {% if d.status == 'filed' %}bg-yellow-100 text-yellow-700
+                {% elif d.status == 'resolved' %}bg-green-100 text-green-700
+                {% elif d.status == 'overturned' %}bg-red-100 text-red-700
+                {% elif d.status == 'evidence_collected' %}bg-blue-100 text-blue-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">{{ d.status|zh_dispute_status }}</span>
+            </div>
+            <div class="text-xs text-gray-400">
+              <span>{{ d.employee_reason[:60] if d.employee_reason else '无说明' }}{% if d.employee_reason and d.employee_reason|length > 60 %}...{% endif %}</span>
+            </div>
+            <div class="text-xs text-gray-300 mt-1">{{ d.created_at[:16] if d.created_at else '' }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="px-4 py-12 text-center">
+          <p class="text-sm text-gray-400">暂无申诉记录</p>
+          <p class="text-xs text-gray-300 mt-1">当员工对考核结果有异议时，申诉将出现在这里</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Right: detail panel -->
+    <div class="lg:col-span-3 rounded-lg border border-gray-200 bg-white p-5" id="dispute-detail">
+      <div class="flex flex-col items-center justify-center h-full text-center py-12">
+        <svg class="w-10 h-10 text-gray-300 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <p class="text-sm text-gray-400">选择左侧申诉项查看详情</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- File Dispute Modal -->
+<div x-data="{ open: false }" @open-dispute-modal.window="open = true" @keydown.escape.window="open = false">
+  <template x-if="open">
+    <div class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="fixed inset-0 bg-black/40" @click="open = false"></div>
+      <div class="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6" @click.stop>
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-lg font-semibold text-gray-800">提交申诉</h3>
+          <button @click="open = false" class="text-gray-400 hover:text-gray-600">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <form action="/disputes" method="POST" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">申诉类型</label>
+            <select name="dispute_type" required class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+              <option value="kpi_score">KPI 评分</option>
+              <option value="task_quality">任务质量</option>
+              <option value="reward">奖惩</option>
+              <option value="risk_label">风险标签</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">目标对象 ID</label>
+            <input type="text" name="target_id" required placeholder="被申诉的记录 ID"
+                   class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">申诉理由</label>
+            <textarea name="reason" required rows="4" placeholder="请详细说明申诉理由…"
+                      class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+          </div>
+          <div class="flex justify-end gap-3 pt-2">
+            <button type="button" @click="open = false" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">取消</button>
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm transition-colors">提交</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </template>
+</div>
+{% endblock %}

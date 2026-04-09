@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}待审知识 — 千方百计AI{% endblock %}
+{% block page_title %}
+<div class="flex items-center gap-2">
+  <a href="/knowledge" class="text-gray-400 hover:text-gray-600 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  待审知识
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 animate-fade-in-up">
+
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-800">候选知识条目</h3>
+    </div>
+    {% if candidates %}
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100 text-left text-xs font-medium text-gray-500">
+          <th class="px-5 py-3">标题</th>
+          <th class="px-5 py-3 w-24">来源</th>
+          <th class="px-5 py-3 w-28">创建时间</th>
+          <th class="px-5 py-3 w-40 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for c in candidates %}
+        <tr class="hover:bg-gray-50/60 transition-colors">
+          <td class="px-5 py-3">
+            <div class="font-medium text-gray-900">{{ c.title }}</div>
+            <div class="text-[11px] text-gray-400 mt-0.5 truncate max-w-lg">{{ c.content[:100] }}</div>
+          </td>
+          <td class="px-5 py-3 text-gray-500 text-xs">{{ c.source }}</td>
+          <td class="px-5 py-3 text-gray-500 text-xs tabular-nums">{{ c.created_at[:10] if c.created_at else '' }}</td>
+          <td class="px-5 py-3 text-right text-xs whitespace-nowrap">
+            <form method="post" action="/knowledge/{{ c.id }}/approve" class="inline">
+              <button type="submit" class="px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 font-medium transition-colors">通过</button>
+            </form>
+            <button type="button" x-data class="ml-2 px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium transition-colors"
+                    @click="$dispatch('confirm-action', { title: '驳回候选', message: '确认将该候选标为已归档（拒绝）？', action: '/knowledge/{{ c.id }}/reject', method: 'POST' })">
+              拒绝
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center text-gray-400 text-sm">暂无候选知识条目</div>
+    {% endif %}
+  </div>
+
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-800">梦境引擎推荐</h3>
+      <p class="text-xs text-gray-400 mt-0.5">由夜间分析引擎自动提取的知识候选</p>
+    </div>
+    {% if dream_candidates %}
+    <div class="divide-y divide-gray-50">
+      {% for dc in dream_candidates %}
+      <div class="px-5 py-3.5 hover:bg-gray-50/60 transition-colors">
+        <div class="flex items-start justify-between">
+          <div class="min-w-0 flex-1">
+            <div class="text-sm font-medium text-gray-900">{{ dc.title if dc.title is defined else '未命名' }}</div>
+            <div class="text-xs text-gray-500 mt-0.5">{{ dc.content if dc.content is defined else '' }}</div>
+          </div>
+          <div class="flex-shrink-0 ml-3 flex items-center gap-2">
+            <span class="inline-flex px-2 py-0.5 text-[11px] rounded-full bg-purple-50 text-purple-700 font-medium">梦境</span>
+            {% if dc.report_date %}
+            <span class="text-[11px] text-gray-400 tabular-nums">{{ dc.report_date }}</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="p-12 text-center text-gray-400 text-sm">暂无梦境引擎推荐</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

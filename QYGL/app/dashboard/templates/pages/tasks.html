@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}任务中心 — 千方百计AI{% endblock %}
+{% block page_title %}任务中心{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <select onchange="location.href='/tasks?status='+this.value+'&team_id={{ team_filter }}'"
+          class="text-sm border border-gray-200 rounded-xl px-3 py-1.5 bg-white focus:ring-2 focus:ring-brand-100 focus:border-brand-400 outline-none">
+    <option value="">全部状态</option>
+    {% for s in statuses %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|zh_task_status }}</option>
+    {% endfor %}
+  </select>
+  <select onchange="location.href='/tasks?status={{ status_filter }}&team_id='+this.value"
+          class="text-sm border border-gray-200 rounded-xl px-3 py-1.5 bg-white focus:ring-2 focus:ring-brand-100 focus:border-brand-400 outline-none">
+    <option value="">全部团队</option>
+    {% for t in teams %}
+    <option value="{{ t.id }}" {% if team_filter == t.id %}selected{% endif %}>{{ t.display_name or t.name }}</option>
+    {% endfor %}
+  </select>
+  <a href="/tasks/new" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>
+    新建任务
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 animate-fade-in-up">
+
+  <!-- Stats Row -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <div class="text-xs text-gray-500 font-medium">全部</div>
+      <div class="text-xl font-bold text-gray-900 mt-0.5 tabular-nums">{{ stats.total }}</div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <div class="text-xs text-gray-500 font-medium">进行中</div>
+      <div class="text-xl font-bold text-amber-600 mt-0.5 tabular-nums">{{ stats.in_progress }}</div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <div class="text-xs text-gray-500 font-medium">已完成</div>
+      <div class="text-xl font-bold text-emerald-600 mt-0.5 tabular-nums">{{ stats.completed }}</div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <div class="text-xs text-gray-500 font-medium">超期</div>
+      <div class="text-xl font-bold {% if stats.overdue > 0 %}text-red-600{% else %}text-gray-900{% endif %} mt-0.5 tabular-nums">{{ stats.overdue }}</div>
+    </div>
+  </div>
+
+  {% if tasks %}
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100 text-left text-xs font-medium text-gray-500">
+          <th class="px-5 py-3">任务</th>
+          <th class="px-5 py-3">团队</th>
+          <th class="px-5 py-3">负责人</th>
+          <th class="px-5 py-3">状态</th>
+          <th class="px-5 py-3">截止日期</th>
+          <th class="px-5 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for task in tasks %}
+        <tr class="hover:bg-gray-50/60 transition-colors">
+          <td class="px-5 py-3">
+            <a href="/tasks/{{ task.id }}" class="font-medium text-gray-900 hover:text-brand-600 line-clamp-1">{{ task.title }}</a>
+          </td>
+          <td class="px-5 py-3 text-gray-600">{{ team_map.get(task.team_id, '—') }}</td>
+          <td class="px-5 py-3">
+            <div class="flex items-center gap-2">
+              {% if task.employee_id %}
+              <div class="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                {{ (employee_map.get(task.employee_id, '?'))[0] }}
+              </div>
+              <span class="text-gray-700">{{ employee_map.get(task.employee_id, task.employee_id[:8]) }}</span>
+              {% else %}
+              <span class="text-gray-400">未指派</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-5 py-3">
+            <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium
+              {% if task.status == 'completed' or task.status == 'scored' %}bg-emerald-50 text-emerald-700
+              {% elif task.status == 'in_progress' or task.status == 'dispatched' %}bg-blue-50 text-blue-700
+              {% elif task.status == 'overdue' %}bg-red-50 text-red-700
+              {% elif task.status == 'pending' %}bg-amber-50 text-amber-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">{{ task.status|zh_task_status }}</span>
+          </td>
+          <td class="px-5 py-3">
+            {% if task.deadline_at %}
+            <span class="text-xs text-gray-500 tabular-nums">{{ task.deadline_at[:10] }}</span>
+            {% else %}
+            <span class="text-xs text-gray-300">—</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-right">
+            <a href="/tasks/{{ task.id }}" class="text-xs text-brand-600 hover:text-brand-800 font-medium">详情 →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-16 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/></svg>
+    </div>
+    <h3 class="text-base font-semibold text-gray-800 mb-1">暂无任务</h3>
+    <p class="text-sm text-gray-500 mb-4">创建第一个任务开始管理</p>
+    <a href="/tasks/new" class="inline-flex items-center gap-1.5 px-5 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>
+      新建任务
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

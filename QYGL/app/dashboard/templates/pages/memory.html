@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}记忆管理 — 千方百计AI{% endblock %}
+{% block page_title %}记忆管理{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Status summary -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-800">{{ stats.total }}</div>
+      <div class="text-xs text-gray-500">总记忆数</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-green-600">{{ stats.verified }}</div>
+      <div class="text-xs text-gray-500">已验证</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-brand-600">{{ layers|length }}</div>
+      <div class="text-xs text-gray-500">层级数</div>
+    </div>
+  </div>
+
+  <!-- Layer tabs -->
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-sm text-gray-500">层级:</span>
+    <a href="/memory" class="px-2.5 py-1 text-xs rounded-md border {% if not layer_filter %}bg-brand-50 border-brand-200 text-brand-700{% else %}border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+      全部 ({{ stats.total }})
+    </a>
+    {% for l in layers %}
+    <a href="/memory?layer={{ l }}" class="px-2.5 py-1 text-xs rounded-md border {% if layer_filter == l %}bg-brand-50 border-brand-200 text-brand-700{% else %}border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+      {{ l|zh_memory_layer }} ({{ layer_counts.get(l, 0) }})
+    </a>
+    {% endfor %}
+
+    {% if teams %}
+    <span class="text-gray-300 mx-1">|</span>
+    <span class="text-sm text-gray-500">团队:</span>
+    <select onchange="if(this.value)location.href='/memory?team_id='+this.value;else location.href='/memory'"
+            class="rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 outline-none">
+      <option value="">全部</option>
+      {% for t in teams %}
+      <option value="{{ t.id }}" {% if team_filter == t.id %}selected{% endif %}>{{ t.display_name or t.name }}</option>
+      {% endfor %}
+    </select>
+    {% endif %}
+  </div>
+
+  <!-- Layer description -->
+  {% if layer_filter and layer_descriptions.get(layer_filter) %}
+  <div class="rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-700">
+    <strong>{{ layer_filter|zh_memory_layer }}</strong>: {{ layer_descriptions[layer_filter] }}
+  </div>
+  {% endif %}
+
+  <!-- Memory table -->
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    {% if memories %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-16">层级</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">内容</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-24">来源</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">引用</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">验证</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-28">创建时间</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-16"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for m in memories %}
+        <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='/memory/{{ m.id }}'">
+          <td class="px-4 py-2.5">
+            {% if m.layer == 'L1' %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ m.layer|zh_memory_layer }}</span>
+            {% elif m.layer == 'L2' %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-orange-100 text-orange-700">{{ m.layer|zh_memory_layer }}</span>
+            {% elif m.layer == 'L3' %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-700">{{ m.layer|zh_memory_layer }}</span>
+            {% elif m.layer == 'L4' %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-purple-100 text-purple-700">{{ m.layer|zh_memory_layer }}</span>
+            {% else %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ m.layer|zh_memory_layer }}</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-gray-700 truncate max-w-md">{{ m.content[:80] }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ m.source or '—' }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-center">{{ m.reference_count or 0 }}</td>
+          <td class="px-4 py-2.5">
+            {% if m.is_verified %}
+            <span class="text-green-600 text-xs">✓</span>
+            {% else %}
+            <span class="text-gray-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ m.created_at[:10] if m.created_at else '' }}</td>
+          <td class="px-4 py-2.5">
+            <button x-data onclick="event.stopPropagation(); $dispatch('confirm-action', { title:'删除记忆', message:'确定要删除这条记忆吗？此操作不可撤销。', action:'/memory/{{ m.id }}/delete' })"
+                    class="text-gray-400 hover:text-red-500">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无记忆数据</h3>
+      <p class="text-xs text-gray-400">AI 运行过程中会自动积累各层记忆</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

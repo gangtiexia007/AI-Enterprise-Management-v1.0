@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}快捷指令 — 千方百计AI{% endblock %}
+{% block page_title %}快捷指令{% endblock %}
+
+{% block header_actions %}
+<button onclick="document.getElementById('create-cmd-modal').classList.remove('hidden')"
+        class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">+ 自定义指令</button>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Status summary -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-800">{{ commands|length }}</div>
+      <div class="text-xs text-gray-500">总指令数</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-brand-600">{{ builtin_count }}</div>
+      <div class="text-xs text-gray-500">内置指令</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-600">{{ custom_count }}</div>
+      <div class="text-xs text-gray-500">自定义指令</div>
+    </div>
+  </div>
+
+  <!-- Commands table -->
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    {% if commands %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">指令</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">描述</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-24">分类</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">类型</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">状态</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-28">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for cmd in commands %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2.5">
+            <span class="font-mono font-medium text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded text-xs">{{ cmd.name }}</span>
+          </td>
+          <td class="px-4 py-2.5 text-gray-600">{{ cmd.description or '—' }}</td>
+          <td class="px-4 py-2.5 text-gray-500 text-xs">{{ cmd.category or '—' }}</td>
+          <td class="px-4 py-2.5">
+            {% if cmd.builtin %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-500">内置</span>
+            {% else %}
+            <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-brand-100 text-brand-700">自定义</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            {% if cmd.enabled %}
+            <span class="inline-flex items-center gap-1 text-green-600 text-xs"><span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>启用</span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-gray-400 text-xs"><span class="h-1.5 w-1.5 rounded-full bg-gray-300"></span>禁用</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <form method="post" action="/commands/{{ cmd.id }}/toggle" class="inline">
+                <button type="submit" class="text-xs text-brand-600 hover:underline">
+                  {% if cmd.enabled %}禁用{% else %}启用{% endif %}
+                </button>
+              </form>
+              {% if not cmd.builtin %}
+              <button type="button"
+                      @click="$dispatch('confirm-action', { title: '删除指令', message: '确认删除指令「{{ cmd.name }}」？此操作不可撤销。', action: '/commands/{{ cmd.id }}/delete', method: 'POST' })"
+                      class="text-xs text-red-600 hover:underline">删除</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无指令</h3>
+      <p class="text-xs text-gray-400">系统内置指令将在首次访问时自动创建</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Create command modal -->
+<div id="create-cmd-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-md mx-4 p-5">
+    <h3 class="text-base font-semibold text-gray-800 mb-4">自定义指令</h3>
+    <form method="post" action="/commands" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">指令名称 <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required placeholder="/自定义指令"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none font-mono">
+        <p class="text-xs text-gray-400 mt-1">以 / 开头，如未输入将自动补全</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">描述</label>
+        <input type="text" name="description" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">分类</label>
+        <input type="text" name="category" value="自定义" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">响应模板</label>
+        <textarea name="response_template" rows="4" placeholder="可使用变量 {employee_name}, {team_name} 等"
+                  class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('create-cmd-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">创建</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

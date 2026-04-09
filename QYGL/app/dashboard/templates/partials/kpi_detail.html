@@ -1,0 +1,52 @@
+<!-- HTMX partial: KPI detail loaded inline -->
+<div class="space-y-4">
+  <div class="flex items-start justify-between">
+    <div>
+      <h3 class="text-base font-semibold text-gray-800">{{ kpi.name }}</h3>
+      <p class="text-xs text-gray-400 mt-0.5">{{ kpi.period|zh_kpi_period }} · 权重 {{ kpi.weight }}</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3 text-sm">
+    <div>
+      <span class="text-xs text-gray-500">目标值</span>
+      <div class="font-medium text-gray-800">{{ kpi.target_value }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">数据来源</span>
+      <div class="font-medium text-gray-800">{% if data_source_map.source_type %}{{ data_source_map.source_type|zh_kpi_source_type }}{% else %}—{% endif %}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">更新频率</span>
+      <div class="text-gray-800">{% if data_source_map.update_frequency %}{{ data_source_map.update_frequency|zh_kpi_period }}{% else %}—{% endif %}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">负责角色</span>
+      <div class="text-gray-800">{{ (data_source_map.responsible_role or '')|zh_employee_role or '—' }}</div>
+    </div>
+  </div>
+
+  {% if scores %}
+  <div class="border-t border-gray-100 pt-3">
+    <h4 class="text-xs font-medium text-gray-500 mb-2">最近评分</h4>
+    <div class="space-y-1.5">
+      {% for s in scores[:5] %}
+      <div class="flex items-center justify-between p-2 rounded bg-gray-50">
+        <span class="text-sm text-gray-600">{{ s.period_key }}</span>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-medium text-gray-800">{{ s.total_score }}</span>
+          {% if s.grade %}
+          <span class="inline-flex px-1.5 py-0.5 text-xs rounded
+            {% if s.grade == 'A' %}bg-green-100 text-green-700{% elif s.grade == 'B' %}bg-yellow-100 text-yellow-700{% else %}bg-red-100 text-red-700{% endif %}">
+            {{ s.grade|zh_kpi_grade }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="/kpi/{{ kpi.id }}" class="block text-center text-xs text-brand-600 hover:underline pt-2">查看完整详情 →</a>
+</div>

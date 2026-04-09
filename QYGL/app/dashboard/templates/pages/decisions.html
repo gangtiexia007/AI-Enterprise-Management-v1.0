@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}决策日志 — 千方百计AI{% endblock %}
+{% block page_title %}决策日志{% endblock %}
+
+{% block header_actions %}
+<button onclick="document.getElementById('create-decision-modal').classList.remove('hidden')"
+        class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">
+  + 记录决策
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">决策总数</div>
+      <div class="text-2xl font-bold text-gray-700">{{ stats.total }}</div>
+    </div>
+    <a href="/decisions?status=pending&team_id={{ team_filter }}" class="stat-card rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">待复盘</div>
+      <div class="text-2xl font-bold text-yellow-600">{{ stats.pending }}</div>
+    </a>
+    <a href="/decisions?status=reviewed&team_id={{ team_filter }}" class="stat-card rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">已复盘</div>
+      <div class="text-2xl font-bold text-green-600">{{ stats.reviewed }}</div>
+    </a>
+  </div>
+
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm text-gray-500">状态:</span>
+    <a href="/decisions?team_id={{ team_filter }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if not status_filter %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">全部</a>
+    {% for s in review_statuses %}
+    <a href="/decisions?status={{ s }}&team_id={{ team_filter }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if status_filter == s %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">{{ s|zh_review_status }}</a>
+    {% endfor %}
+
+    {% if teams %}
+    <span class="text-sm text-gray-500 ml-2">团队:</span>
+    <a href="/decisions?status={{ status_filter }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if not team_filter %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">全部</a>
+    {% for t in teams[:8] %}
+    <a href="/decisions?status={{ status_filter }}&team_id={{ t.id }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if team_filter == t.id %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">{{ t.display_name or t.name }}</a>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  {% if decisions %}
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">决策内容</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden md:table-cell">团队</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden md:table-cell">决策人</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">依据</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">复盘状态</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">创建时间</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for d in decisions %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2.5">
+            <div class="font-medium text-gray-800 truncate max-w-xs">{{ d.decision[:60] }}</div>
+            {% if d.expected_result %}
+            <div class="text-xs text-gray-400 truncate max-w-xs">预期: {{ d.expected_result[:40] }}</div>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">{{ team_map.get(d.team_id, d.team_id) }}</td>
+          <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">{{ employee_map.get(d.employee_id, d.employee_id or '-') }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-400 hidden lg:table-cell truncate max-w-[200px]">{{ d.data_basis[:40] if d.data_basis else '-' }}</td>
+          <td class="px-4 py-2.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
+              {% if d.review_status == 'pending' %}bg-yellow-100 text-yellow-700
+              {% elif d.review_status == 'reviewed' %}bg-green-100 text-green-700
+              {% elif d.review_status == 'skipped' %}bg-gray-100 text-gray-600
+              {% else %}bg-gray-100 text-gray-600{% endif %}">{{ d.review_status|zh_review_status }}</span>
+          </td>
+          <td class="px-4 py-2.5 text-xs text-gray-400 hidden lg:table-cell">{{ d.created_at[:10] if d.created_at else '-' }}</td>
+          <td class="px-4 py-2.5">
+            <a href="/decisions/{{ d.id }}" class="text-xs text-brand-600 hover:text-brand-700">详情</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+    <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+    <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无决策记录</h3>
+    <p class="text-xs text-gray-400 mb-4">AI 和人工产生的决策将记录在此</p>
+    <button onclick="document.getElementById('create-decision-modal').classList.remove('hidden')"
+            class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">记录决策</button>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Create Decision Modal -->
+<div id="create-decision-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-lg mx-4 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-gray-800">记录决策</h3>
+      <button onclick="document.getElementById('create-decision-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+    </div>
+    <form method="post" action="/decisions" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">团队 <span class="text-red-500">*</span></label>
+        <select name="team_id" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          <option value="">选择团队</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">决策人 ID</label>
+        <input type="text" name="employee_id" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none" placeholder="可选，填写员工 ID">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">决策内容 <span class="text-red-500">*</span></label>
+        <textarea name="decision" rows="3" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">数据依据</label>
+        <textarea name="data_basis" rows="2" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">预期结果</label>
+        <input type="text" name="expected_result" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('create-decision-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">记录</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

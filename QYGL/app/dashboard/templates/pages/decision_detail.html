@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}决策详情 — 千方百计AI{% endblock %}
+{% block page_title %}决策详情{% endblock %}
+
+{% block header_actions %}
+<a href="/decisions" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">← 返回列表</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5 max-w-4xl">
+
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h2 class="text-lg font-semibold text-gray-800 mb-1">{{ decision.decision }}</h2>
+        <div class="flex items-center gap-3 text-xs text-gray-400">
+          <span>团队: {{ team_map.get(decision.team_id, decision.team_id) }}</span>
+          {% if employee %}
+          <span>决策人: {{ employee.name or decision.employee_id }}</span>
+          {% endif %}
+          <span>{{ decision.created_at[:16] if decision.created_at else '' }}</span>
+        </div>
+      </div>
+      <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium
+        {% if decision.review_status == 'pending' %}bg-yellow-100 text-yellow-700
+        {% elif decision.review_status == 'reviewed' %}bg-green-100 text-green-700
+        {% elif decision.review_status == 'skipped' %}bg-gray-100 text-gray-600
+        {% else %}bg-gray-100 text-gray-600{% endif %}">{{ decision.review_status|zh_review_status }}</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <div class="text-xs font-medium text-gray-500 mb-1">数据依据</div>
+        <div class="text-sm text-gray-700 bg-gray-50 rounded-md p-3 min-h-[48px]">{{ decision.data_basis or '无' }}</div>
+      </div>
+      <div>
+        <div class="text-xs font-medium text-gray-500 mb-1">预期结果</div>
+        <div class="text-sm text-gray-700 bg-gray-50 rounded-md p-3 min-h-[48px]">{{ decision.expected_result or '无' }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if decision.actual_result or evaluation %}
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">复盘结果</h3>
+
+    {% if decision.actual_result %}
+    <div class="mb-4">
+      <div class="text-xs font-medium text-gray-500 mb-1">实际结果</div>
+      <div class="text-sm text-gray-700 bg-gray-50 rounded-md p-3">{{ decision.actual_result }}</div>
+    </div>
+    {% endif %}
+
+    {% if evaluation %}
+    <div class="mb-4">
+      <div class="text-xs font-medium text-gray-500 mb-1">评估摘要</div>
+      <div class="text-sm text-gray-700 bg-gray-50 rounded-md p-3">{{ evaluation.get('summary', '无') }}</div>
+    </div>
+
+    {% if evaluation.get('changes') %}
+    <div>
+      <div class="text-xs font-medium text-gray-500 mb-2">指标变化</div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {% for key, val in evaluation.changes.items() %}
+        <div class="bg-gray-50 rounded-md p-3">
+          <div class="text-xs text-gray-500 mb-1">{{ key }}</div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-600">{{ val.before }}</span>
+            <span class="text-xs {% if val.delta > 0 %}text-green-600{% elif val.delta < 0 %}text-red-600{% else %}text-gray-400{% endif %}">
+              {% if val.delta > 0 %}↑{% elif val.delta < 0 %}↓{% else %}→{% endif %} {{ val.delta }}
+            </span>
+            <span class="text-sm text-gray-600">{{ val.after }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">指标快照</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <div class="text-xs font-medium text-gray-500 mb-2">决策前</div>
+        {% if decision.metric_snapshot_before and decision.metric_snapshot_before is mapping and decision.metric_snapshot_before.keys()|list|length > 0 %}
+        <div class="bg-gray-50 rounded-md p-3 space-y-1">
+          {% for k, v in decision.metric_snapshot_before.items() %}
+          <div class="flex justify-between text-xs">
+            <span class="text-gray-500">{{ k }}</span>
+            <span class="text-gray-700 font-medium">{{ v }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-xs text-gray-400 bg-gray-50 rounded-md p-3">暂无数据</div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="text-xs font-medium text-gray-500 mb-2">决策后</div>
+        {% if decision.metric_snapshot_after and decision.metric_snapshot_after is mapping and decision.metric_snapshot_after.keys()|list|length > 0 %}
+        <div class="bg-gray-50 rounded-md p-3 space-y-1">
+          {% for k, v in decision.metric_snapshot_after.items() %}
+          <div class="flex justify-between text-xs">
+            <span class="text-gray-500">{{ k }}</span>
+            <span class="text-gray-700 font-medium">{{ v }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-xs text-gray-400 bg-gray-50 rounded-md p-3">暂无数据</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if decision.review_result %}
+  <div class="rounded-lg border border-gray-200 bg-white p-5">
+    <h3 class="text-sm font-semibold text-gray-800 mb-2">复盘备注</h3>
+    <div class="text-sm text-gray-700">{{ decision.review_result }}</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

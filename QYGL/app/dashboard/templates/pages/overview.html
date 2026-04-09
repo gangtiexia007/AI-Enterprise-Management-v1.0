@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block title %}总览 — 千方百计AI{% endblock %}
+{% block page_title %}总览{% endblock %}
+
+{% block content %}
+<div class="space-y-6 animate-fade-in-up">
+
+  {% if flash_msg %}
+  <div class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" x-data="{ show: true }" x-show="show" x-transition>
+    <div class="flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span>{{ flash_msg }}</span>
+      </div>
+      <button @click="show = false" class="text-green-400 hover:text-green-600">&times;</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Greeting -->
+  <div class="flex items-end justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900">
+        {% if current_user %}
+        {{ current_user.display_name or current_user.username or '你好' }}，你好
+        {% else %}
+        你好
+        {% endif %}
+      </h2>
+      <p class="text-sm text-gray-500 mt-1">这是你的管理概览，AI 正在为你持续关注。</p>
+    </div>
+    <div class="text-sm text-gray-400 hidden sm:block">
+      <span x-data x-text="new Date().toLocaleDateString('zh-CN', {year:'numeric',month:'long',day:'numeric',weekday:'long'})"></span>
+    </div>
+  </div>
+
+  {% if shadow_countdown %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+        <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <span class="text-sm text-amber-800">
+        团队正在<strong>影子模式</strong>运行中，剩余 <strong>{{ shadow_countdown.remaining_days }}</strong> 天
+      </span>
+    </div>
+    <a href="/teams/{{ shadow_countdown.team_id }}" class="text-xs text-amber-700 font-medium hover:text-amber-900 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors">查看 →</a>
+  </div>
+  {% endif %}
+
+  <!-- Key Metric Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+    <!-- Card 1: Active Teams -->
+    <a href="/teams" class="stat-card block rounded-2xl border border-gray-200 bg-white p-5 hover:border-brand-200">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500">活跃团队</p>
+          <p class="text-3xl font-bold text-gray-900 mt-1 tabular-nums">{{ stats.active_teams }}</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm12-4h.01M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mt-3">
+        <span class="inline-flex items-center text-xs text-emerald-600 font-medium">
+          <svg class="w-3 h-3 mr-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+          运行中
+        </span>
+        <span class="text-xs text-gray-400">·</span>
+        <span class="text-xs text-gray-400">进入团队管理 →</span>
+      </div>
+    </a>
+
+    <!-- Card 2: In-progress Tasks -->
+    <a href="/tasks" class="stat-card block rounded-2xl border border-gray-200 bg-white p-5 hover:border-amber-200">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500">进行中任务</p>
+          <p class="text-3xl font-bold text-gray-900 mt-1 tabular-nums">{{ in_progress_tasks }}</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+          <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mt-3">
+        {% if overdue_count > 0 %}
+        <span class="inline-flex items-center text-xs text-red-600 font-medium">
+          <svg class="w-3 h-3 mr-0.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
+          {{ overdue_count }} 项超期
+        </span>
+        <span class="text-xs text-gray-400">·</span>
+        {% endif %}
+        <span class="text-xs text-gray-400">完成率 {{ completion_rate }}%</span>
+      </div>
+    </a>
+
+    <!-- Card 3: Pending Approvals -->
+    <a href="/approvals?status=pending" class="stat-card block rounded-2xl border bg-white p-5
+              {% if stats.pending_approvals > 0 %}border-red-200 hover:border-red-300{% else %}border-gray-200 hover:border-gray-300{% endif %}">
+      <div class="flex items-start justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500">待审批</p>
+          <p class="text-3xl font-bold mt-1 tabular-nums {% if stats.pending_approvals > 0 %}text-red-600{% else %}text-gray-900{% endif %}">{{ stats.pending_approvals }}</p>
+        </div>
+        <div class="w-11 h-11 rounded-xl {% if stats.pending_approvals > 0 %}bg-red-50{% else %}bg-gray-50{% endif %} flex items-center justify-center">
+          <svg class="w-5 h-5 {% if stats.pending_approvals > 0 %}text-red-600{% else %}text-gray-400{% endif %}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mt-3">
+        {% if stats.pending_approvals > 0 %}
+        <span class="inline-flex items-center text-xs text-red-600 font-medium">需要处理</span>
+        {% else %}
+        <span class="text-xs text-gray-400">暂无待审批项</span>
+        {% endif %}
+      </div>
+    </a>
+  </div>
+
+  <!-- Secondary Stats Row -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+      <div class="text-xs text-gray-500 font-medium">目标达成</div>
+      <div class="flex items-end justify-between mt-1">
+        <span class="text-xl font-bold text-gray-900 tabular-nums">{{ goal_progress_pct }}%</span>
+        <div class="w-16 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div class="h-full rounded-full bg-emerald-500" style="width: {% if goal_progress_pct > 100 %}100{% else %}{{ goal_progress_pct }}{% endif %}%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+      <div class="text-xs text-gray-500 font-medium">任务完成率</div>
+      <div class="flex items-end justify-between mt-1">
+        <span class="text-xl font-bold text-gray-900 tabular-nums">{{ completion_rate }}%</span>
+        <div class="w-16 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div class="h-full rounded-full bg-brand-500" style="width: {% if completion_rate > 100 %}100{% else %}{{ completion_rate }}{% endif %}%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+      <div class="text-xs text-gray-500 font-medium">今日 Token</div>
+      <div class="flex items-end justify-between mt-1">
+        <span class="text-xl font-bold text-gray-900 tabular-nums">{{ "{:,}".format(today_token_total|default(0)) }}</span>
+        <div class="w-16 h-2 rounded-full bg-gray-100 overflow-hidden">
+          <div class="h-full rounded-full bg-violet-500" style="width: {{ stats.token_usage_pct }}%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+      <div class="text-xs text-gray-500 font-medium">KPI 预警</div>
+      <div class="flex items-end justify-between mt-1">
+        <span class="text-xl font-bold tabular-nums {% if kpi_alerts_count > 0 %}text-amber-600{% else %}text-gray-900{% endif %}">{{ kpi_alerts_count }}</span>
+        {% if kpi_alerts_count > 0 %}
+        <a href="/kpi" class="text-xs text-amber-600 font-medium hover:underline">查看 →</a>
+        {% else %}
+        <span class="text-xs text-gray-400">正常</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Discoveries + Approvals -->
+  <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+
+    <!-- AI Discoveries -->
+    <div class="lg:col-span-3 rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-brand-600 flex items-center justify-center">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="text-sm font-semibold text-gray-800">AI 发现</h3>
+        </div>
+        <span class="text-xs text-gray-400">需要你关注的事项</span>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% if overdue_count > 0 %}
+        <a href="/tasks" class="flex items-center gap-3 px-5 py-3.5 hover:bg-red-50/50 transition-colors group">
+          <div class="w-2 h-2 rounded-full bg-red-500 flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <span class="text-sm text-gray-800">有 <strong class="text-red-600">{{ overdue_count }}</strong> 项任务已超期，请尽快处理</span>
+          </div>
+          <span class="text-xs text-gray-400 group-hover:text-red-500 transition-colors">查看 →</span>
+        </a>
+        {% endif %}
+
+        {% if stats.pending_approvals > 0 %}
+        <a href="/approvals?status=pending" class="flex items-center gap-3 px-5 py-3.5 hover:bg-amber-50/50 transition-colors group">
+          <div class="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <span class="text-sm text-gray-800">有 <strong class="text-amber-600">{{ stats.pending_approvals }}</strong> 项审批等待你处理</span>
+          </div>
+          <span class="text-xs text-gray-400 group-hover:text-amber-500 transition-colors">审批 →</span>
+        </a>
+        {% endif %}
+
+        {% if kpi_alerts_count > 0 %}
+        <a href="/kpi" class="flex items-center gap-3 px-5 py-3.5 hover:bg-orange-50/50 transition-colors group">
+          <div class="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <span class="text-sm text-gray-800">KPI 预警：<strong class="text-orange-600">{{ kpi_alerts_count }}</strong> 条 C/D 级评分记录</span>
+          </div>
+          <span class="text-xs text-gray-400 group-hover:text-orange-500 transition-colors">查看 →</span>
+        </a>
+        {% endif %}
+
+        {% if stats.token_usage_pct > 80 %}
+        <div class="flex items-center gap-3 px-5 py-3.5">
+          <div class="w-2 h-2 rounded-full bg-violet-500 flex-shrink-0"></div>
+          <span class="text-sm text-gray-800">Token 使用量已达 <strong class="text-violet-600">{{ stats.token_usage_pct }}%</strong>，注意额度</span>
+        </div>
+        {% endif %}
+
+        {% if overdue_count == 0 and stats.pending_approvals == 0 and kpi_alerts_count == 0 %}
+        <div class="flex items-center gap-3 px-5 py-3.5">
+          <div class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></div>
+          <span class="text-sm text-gray-500">一切正常，暂无需要关注的事项</span>
+        </div>
+        {% endif %}
+
+        {% for t in overdue_tasks_list[:3] %}
+        <a href="/tasks/{{ t.id }}" class="flex items-center gap-3 px-5 py-3.5 hover:bg-gray-50 transition-colors group">
+          <div class="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <span class="text-sm text-gray-700">
+              <strong class="text-gray-900">{{ t.employee_name or '未指派' }}</strong> 的任务
+              「{{ t.title[:20] }}{% if t.title|length > 20 %}...{% endif %}」已超期
+            </span>
+          </div>
+          <span class="text-xs text-red-500 font-medium flex-shrink-0">{{ t.deadline_at[:10] if t.deadline_at else '' }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Pending Approvals Quick -->
+    <div class="lg:col-span-2 rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-800">待处理审批</h3>
+        <a href="/approvals?status=pending" class="text-xs text-brand-600 hover:text-brand-800 font-medium">全部 →</a>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% if pending_approvals_top5 %}
+          {% for a in pending_approvals_top5 %}
+          <div class="px-5 py-3 hover:bg-gray-50/80 transition-colors">
+            <a href="/approvals/{{ a.id }}" class="text-sm font-medium text-gray-800 hover:text-brand-600 line-clamp-1">{{ a.title }}</a>
+            <div class="mt-1.5 flex items-center gap-2">
+              {% set pr = a.priority if a.priority is not none else 2 %}
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold
+                {% if pr <= 1 %}bg-red-100 text-red-700{% elif pr == 2 %}bg-amber-100 text-amber-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                {% if pr <= 1 %}高{% elif pr == 2 %}中{% else %}低{% endif %}
+              </span>
+              <span class="text-[11px] text-gray-400">{{ a.created_at[:10] if a.created_at else '' }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="px-5 py-10 text-center">
+            <div class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
+              <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p class="text-sm text-gray-400">全部已处理</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Team Performance -->
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-800">团队概览</h3>
+      <a href="/teams" class="text-xs text-brand-600 hover:text-brand-800 font-medium">管理团队 →</a>
+    </div>
+    {% if team_stats %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 text-left text-xs font-medium text-gray-500">
+            <th class="px-5 py-3">团队</th>
+            <th class="px-5 py-3 text-right">任务</th>
+            <th class="px-5 py-3 text-right">完成</th>
+            <th class="px-5 py-3 min-w-[120px]">完成率</th>
+            <th class="px-5 py-3 text-right">审批</th>
+            <th class="px-5 py-3">状态</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for ts in team_stats %}
+          <tr class="hover:bg-gray-50/60 transition-colors">
+            <td class="px-5 py-3">
+              <a href="/teams/{{ ts.id }}" class="font-medium text-gray-900 hover:text-brand-600">{{ ts.name }}</a>
+            </td>
+            <td class="px-5 py-3 text-right text-gray-600 tabular-nums">{{ ts.tasks_total }}</td>
+            <td class="px-5 py-3 text-right text-gray-600 tabular-nums">{{ ts.tasks_completed }}</td>
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2">
+                <div class="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div class="h-full rounded-full {% if ts.completion_rate >= 80 %}bg-emerald-500{% elif ts.completion_rate >= 50 %}bg-brand-500{% else %}bg-amber-500{% endif %}"
+                       style="width: {{ ts.completion_rate }}%"></div>
+                </div>
+                <span class="text-xs text-gray-500 w-9 text-right tabular-nums">{{ ts.completion_rate }}%</span>
+              </div>
+            </td>
+            <td class="px-5 py-3 text-right">
+              {% if ts.pending_approvals > 0 %}
+              <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-100 text-red-700 text-xs font-bold">{{ ts.pending_approvals }}</span>
+              {% else %}
+              <span class="text-gray-300">—</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-3">
+              <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium
+                {% if ts.status == 'live' %}bg-emerald-50 text-emerald-700
+                {% elif ts.status == 'active' %}bg-blue-50 text-blue-700
+                {% elif ts.status == 'shadow' %}bg-amber-50 text-amber-700
+                {% elif ts.status == 'disabled' %}bg-gray-100 text-gray-500
+                {% else %}bg-gray-100 text-gray-600{% endif %}">{{ ts.status|zh_team_status }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="px-5 py-12 text-center">
+      <p class="text-sm text-gray-400">暂无团队数据，<a href="/teams" class="text-brand-600 hover:underline">创建第一个团队</a></p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Activity Log -->
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-800">最近动态</h3>
+      <span class="text-xs text-gray-400">审计日志 · 最近 10 条</span>
+    </div>
+    <div class="divide-y divide-gray-50">
+      {% if recent_activities %}
+        {% for log in recent_activities %}
+        <div class="px-5 py-3 flex items-start gap-3 hover:bg-gray-50/50 transition-colors">
+          <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-xs font-bold text-gray-500">{{ (log.actor or '?')[0] }}</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="text-sm text-gray-800">
+              <span class="font-medium text-gray-900">{{ log.actor }}</span>
+              <span class="text-gray-500 mx-1">·</span>
+              <span>{{ log.action }}</span>
+            </div>
+            <div class="text-xs text-gray-400 mt-0.5">
+              {{ log.timestamp[:16] if log.timestamp else '' }}
+              {% if log.resource_type %}· {{ log.resource_type|zh_resource_type }}{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="px-5 py-10 text-center text-sm text-gray-400">暂无审计记录</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

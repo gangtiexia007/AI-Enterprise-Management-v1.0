@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}{{ kpi.name }} — KPI 详情{% endblock %}
+{% block page_title %}
+<a href="/kpi" class="text-gray-400 hover:text-gray-600">KPI</a>
+<span class="text-gray-300 mx-1">/</span>
+{{ kpi.name }}
+{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <button type="button" id="kpi-btn-toggle-edit"
+          onclick="(function(){ var p=document.getElementById('kpi-edit-panel'); var b=document.getElementById('kpi-btn-toggle-edit'); if(!p||!b)return; p.classList.toggle('hidden'); var on=!p.classList.contains('hidden'); b.classList.toggle('border-brand-500',on); b.classList.toggle('bg-brand-50',on); b.classList.toggle('text-brand-700',on); })();"
+          class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">
+    编辑
+  </button>
+  <button type="button" x-data
+          @click="$dispatch('confirm-action', { title: '删除 KPI', message: '此操作不可撤销，确认删除该 KPI 定义？', action: '/kpi/{{ kpi.id }}/delete', method: 'POST' })"
+          class="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50">
+    删除
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <!-- KPI info -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="lg:col-span-2 space-y-4">
+      <div id="kpi-edit-panel" class="rounded-lg border border-brand-200 bg-brand-50/30 p-5 hidden">
+        <h3 class="text-base font-semibold text-gray-800 mb-4">编辑 KPI</h3>
+        <form method="post" action="/kpi/{{ kpi.id }}/update" class="space-y-4 text-sm">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-600 mb-1">名称 <span class="text-red-500">*</span></label>
+              <input type="text" name="name" required value="{{ kpi.name }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">周期</label>
+              <select name="period" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+                {% for p in periods %}
+                <option value="{{ p }}" {% if kpi.period == p %}selected{% endif %}>{{ p|zh_kpi_period }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">权重</label>
+              <input type="number" name="weight" value="{{ kpi.weight }}" step="0.1"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">目标值</label>
+              <input type="number" name="target_value" value="{{ kpi.target_value }}" step="0.01"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">来源类型</label>
+              <input type="text" name="source_type" value="{{ kpi.source_type or '' }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-600 mb-1">来源详情</label>
+              <input type="text" name="source_detail" value="{{ kpi.source_detail or '' }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">更新频率</label>
+              <input type="text" name="update_frequency" value="{{ kpi.update_frequency or '' }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">责任角色</label>
+              <input type="text" name="responsible_role" value="{{ kpi.responsible_role or '' }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-600 mb-1">争议裁决人</label>
+              <input type="text" name="dispute_resolver" value="{{ kpi.dispute_resolver or '' }}"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-600 mb-1">评分规则 JSON</label>
+              <textarea name="scoring_json" rows="4"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none bg-white resize-y">{{ kpi.scoring_json or '{}' }}</textarea>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-600 mb-1">指标配置 JSON</label>
+              <textarea name="metrics_json" rows="4"
+                        class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none bg-white resize-y">{{ kpi.metrics_json or '{}' }}</textarea>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="document.getElementById('kpi-edit-panel').classList.add('hidden'); var b=document.getElementById('kpi-btn-toggle-edit'); if(b){ b.classList.remove('border-brand-500','bg-brand-50','text-brand-700'); }"
+                    class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+            <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 class="text-base font-semibold text-gray-800 mb-4">基本信息</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-gray-500">名称</span>
+            <div class="font-medium text-gray-800 mt-0.5">{{ kpi.name }}</div>
+          </div>
+          <div>
+            <span class="text-gray-500">周期</span>
+            <div class="font-medium text-gray-800 mt-0.5">{{ kpi.period|zh_kpi_period }}</div>
+          </div>
+          <div>
+            <span class="text-gray-500">目标值</span>
+            <div class="font-medium text-gray-800 mt-0.5">{{ kpi.target_value }}</div>
+          </div>
+          <div>
+            <span class="text-gray-500">权重</span>
+            <div class="font-medium text-gray-800 mt-0.5">{{ kpi.weight }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend chart -->
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">趋势图表</h3>
+        <div id="trend-chart" style="height: 300px;"></div>
+      </div>
+    </div>
+
+    <!-- Data source map -->
+    <div class="space-y-4">
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">数据来源</h3>
+        <div class="space-y-3 text-sm">
+          <div>
+            <span class="text-gray-500 text-xs">来源类型</span>
+            <div class="text-gray-800">{% if data_source_map.source_type %}{{ data_source_map.source_type|zh_kpi_source_type }}{% else %}未配置{% endif %}</div>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs">来源详情</span>
+            <div class="text-gray-800">{{ data_source_map.source_detail or '未配置' }}</div>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs">更新频率</span>
+            <div class="text-gray-800">{% if data_source_map.update_frequency %}{{ data_source_map.update_frequency|zh_kpi_period }}{% else %}未配置{% endif %}</div>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs">责任角色</span>
+            <div class="text-gray-800">{{ data_source_map.responsible_role or '未配置' }}</div>
+          </div>
+          <div>
+            <span class="text-gray-500 text-xs">争议裁决人</span>
+            <div class="text-gray-800">{{ data_source_map.dispute_resolver or '未配置' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent scores -->
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">最近评分</h3>
+        {% if scores %}
+        <div class="space-y-2">
+          {% for s in scores[:5] %}
+          <div class="flex justify-between text-sm border-b border-gray-50 pb-2">
+            <span class="text-gray-600">{{ s.period_key }}</span>
+            <span class="font-medium text-gray-800">{{ s.total_score }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400">暂无评分数据</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var chartDom = document.getElementById('trend-chart');
+  if (!chartDom) return;
+  var chart = echarts.init(chartDom);
+  var labels = {{ trend_data.labels | tojson }};
+  var values = {{ trend_data.values | tojson }};
+  chart.setOption({
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: labels, axisLabel: { fontSize: 11 } },
+    yAxis: { type: 'value', axisLabel: { fontSize: 11 } },
+    series: [{ data: values, type: 'line', smooth: true, lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' }, areaStyle: { color: 'rgba(59,130,246,0.08)' } }],
+    grid: { left: 40, right: 20, top: 20, bottom: 30 },
+  });
+  window.addEventListener('resize', function() { chart.resize(); });
+});
+</script>
+{% endblock %}

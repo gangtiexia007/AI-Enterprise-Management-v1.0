@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  qfbj:
+    build: .
+    container_name: qfbj-ai
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./knowledge:/app/knowledge
+    environment:
+      - QFBJ_DB_PATH=data/qfbj.db
+      - QFBJ_HOST=0.0.0.0
+      - QFBJ_PORT=8000
+      - QFBJ_DEBUG=false
+      - QFBJ_LOG_LEVEL=INFO
+      - QFBJ_ENCRYPT_KEY=${QFBJ_ENCRYPT_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

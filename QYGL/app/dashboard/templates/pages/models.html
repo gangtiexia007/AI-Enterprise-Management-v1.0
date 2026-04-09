@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}模型管理 — 千方百计AI{% endblock %}
+{% block page_title %}模型管理{% endblock %}
+
+{% block header_actions %}
+<div class="flex gap-2">
+  <a href="/models/usage" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">用量统计</a>
+  <button onclick="document.getElementById('create-model-modal').classList.remove('hidden')"
+          class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">+ 注册模型</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Status summary -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-800">{{ stats.total }}</div>
+      <div class="text-xs text-gray-500">总模型数</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-green-600">{{ stats.enabled }}</div>
+      <div class="text-xs text-gray-500">已启用</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold {% if stats.alerts > 0 %}text-red-600{% else %}text-gray-400{% endif %}">{{ stats.alerts }}</div>
+      <div class="text-xs text-gray-500">预算告警</div>
+    </div>
+  </div>
+
+  <!-- Model table -->
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    {% if models %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">模型名称</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-24">提供商</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">级别</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-32">今日用量</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">状态</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-44">操作</th>
+        </tr>
+      </thead>
+      {% for m in models %}
+      <tbody x-data="{ editOpen: false }" class="border-b border-gray-100 last:border-b-0">
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-gray-800">{{ m.name }}</span>
+              {% if m.is_default %}<span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-brand-100 text-brand-700">默认</span>{% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-2.5 text-gray-500">{{ m.provider|zh_model_provider }}</td>
+          <td class="px-4 py-2.5 text-gray-500">T{{ m.cost_tier }}</td>
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 bg-gray-100 rounded-full h-1.5">
+                <div class="h-1.5 rounded-full {% if m.usage_pct >= 80 %}bg-red-500{% elif m.usage_pct >= 50 %}bg-yellow-500{% else %}bg-brand-500{% endif %}"
+                     style="width: {{ m.usage_pct }}%"></div>
+              </div>
+              <span class="text-xs text-gray-500 w-14 text-right">{{ m.usage_pct }}%</span>
+            </div>
+            {% if m.budget_alert %}
+            <div class="text-xs text-red-500 mt-0.5">⚠ 接近限额</div>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            {% if m.enabled %}
+            <span class="inline-flex items-center gap-1 text-green-600 text-xs"><span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>启用</span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-gray-400 text-xs"><span class="h-1.5 w-1.5 rounded-full bg-gray-300"></span>禁用</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-2.5">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <button type="button" @click="editOpen = !editOpen" class="text-xs text-brand-600 hover:underline">
+                <span x-show="!editOpen">编辑</span>
+                <span x-show="editOpen" x-cloak>收起</span>
+              </button>
+              <form method="post" action="/models/{{ m.id }}/toggle" class="inline">
+                <button type="submit" class="text-xs text-gray-600 hover:underline">{% if m.enabled %}禁用{% else %}启用{% endif %}</button>
+              </form>
+              <button type="button"
+                      @click="$dispatch('confirm-action', { title: '删除模型', message: '确认删除「{{ m.name }}」？此操作不可撤销。', action: '/models/{{ m.id }}/delete', method: 'POST' })"
+                      class="text-xs text-red-600 hover:underline">删除</button>
+              <button type="button" onclick="fetch('/models/{{ m.id }}/test',{method:'POST'}).then(r=>r.json()).then(d=>alert(d.message))"
+                      class="text-xs text-brand-600 hover:underline">测试</button>
+            </div>
+          </td>
+        </tr>
+        <tr x-show="editOpen" x-cloak class="bg-gray-50">
+          <td colspan="6" class="px-4 py-4">
+            <form method="post" action="/models/{{ m.id }}/update" class="space-y-3 max-w-3xl">
+              <div class="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">模型名称</label>
+                  <input type="text" name="name" required value="{{ m.name }}"
+                         class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">提供商</label>
+                  <select name="provider" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                    <option value="openai" {% if m.provider == 'openai' %}selected{% endif %}>OpenAI</option>
+                    <option value="deepseek" {% if m.provider == 'deepseek' %}selected{% endif %}>DeepSeek</option>
+                    <option value="anthropic" {% if m.provider == 'anthropic' %}selected{% endif %}>Anthropic</option>
+                    <option value="zhipu" {% if m.provider == 'zhipu' %}selected{% endif %}>智谱</option>
+                    <option value="moonshot" {% if m.provider == 'moonshot' %}selected{% endif %}>Moonshot</option>
+                    <option value="other" {% if m.provider == 'other' %}selected{% endif %}>其他</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">新 API 密钥（可选）</label>
+                <input type="password" name="api_key" placeholder="留空则不修改"
+                       class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">成本级别</label>
+                  <select name="cost_tier" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                    <option value="1" {% if (m.cost_tier or 1) == 1 %}selected{% endif %}>T1 (低)</option>
+                    <option value="2" {% if m.cost_tier == 2 %}selected{% endif %}>T2 (中)</option>
+                    <option value="3" {% if m.cost_tier == 3 %}selected{% endif %}>T3 (高)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">日限额</label>
+                  <input type="number" name="daily_token_limit" value="{{ m.daily_token_limit or 0 }}"
+                         class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">月限额</label>
+                  <input type="number" name="monthly_token_limit" value="{{ m.monthly_token_limit or 0 }}"
+                         class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">默认模型</label>
+                  <select name="is_default" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                    <option value="0" {% if not m.is_default %}selected{% endif %}>否</option>
+                    <option value="1" {% if m.is_default %}selected{% endif %}>是</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">启用状态</label>
+                <select name="enabled" class="w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                  <option value="1" {% if m.enabled %}selected{% endif %}>启用</option>
+                  <option value="0" {% if not m.enabled %}selected{% endif %}>禁用</option>
+                </select>
+              </div>
+              <div class="flex justify-end gap-2 pt-1">
+                <button type="button" @click="editOpen = false" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+                <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      </tbody>
+      {% endfor %}
+    </table>
+    {% else %}
+    <div class="p-12 text-center">
+      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
+      <h3 class="text-sm font-semibold text-gray-600 mb-1">尚未注册任何模型</h3>
+      <p class="text-xs text-gray-400 mb-4">注册 LLM 模型后系统才能运行AI功能</p>
+      <button onclick="document.getElementById('create-model-modal').classList.remove('hidden')"
+              class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">注册第一个模型</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Create model modal -->
+<div id="create-model-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-md mx-4 p-5">
+    <h3 class="text-base font-semibold text-gray-800 mb-4">注册模型</h3>
+    <form method="post" action="/models" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">模型名称 <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required placeholder="如: gpt-4o"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">提供商 <span class="text-red-500">*</span></label>
+        <select name="provider" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+          <option value="openai">OpenAI</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="anthropic">Anthropic</option>
+          <option value="zhipu">智谱</option>
+          <option value="moonshot">Moonshot</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">API 密钥</label>
+        <input type="password" name="api_key" placeholder="sk-..."
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+        <p class="text-xs text-gray-400 mt-1">API 密钥将被加密存储</p>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">成本级别</label>
+          <select name="cost_tier" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+            <option value="1">T1 (低)</option>
+            <option value="2">T2 (中)</option>
+            <option value="3">T3 (高)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">日限额</label>
+          <input type="number" name="daily_token_limit" value="0" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">月限额</label>
+          <input type="number" name="monthly_token_limit" value="0" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" name="is_default" id="is_default" class="rounded border-gray-300 text-brand-600">
+        <label for="is_default" class="text-sm text-gray-600">设为默认模型</label>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('create-model-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">注册</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

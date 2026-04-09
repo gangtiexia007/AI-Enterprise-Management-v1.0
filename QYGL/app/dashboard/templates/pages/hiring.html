@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}招聘管理 — 千方百计AI{% endblock %}
+{% block page_title %}招聘管理{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <button onclick="document.getElementById('create-profile-modal').classList.remove('hidden')"
+          class="px-3 py-1.5 text-sm bg-white border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50">
+    + 新建画像
+  </button>
+  <button onclick="document.getElementById('add-candidate-modal').classList.remove('hidden')"
+          class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">
+    + 添加候选人
+  </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5" x-data="{ tab: 'profiles' }">
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">招聘职位</div>
+      <div class="text-2xl font-bold text-brand-600">{{ stats.total_profiles }}</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">候选人总数</div>
+      <div class="text-2xl font-bold text-gray-700">{{ stats.total_candidates }}</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">待面试</div>
+      <div class="text-2xl font-bold text-yellow-600">{{ stats.pending_interview }}</div>
+    </div>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">已入职</div>
+      <div class="text-2xl font-bold text-green-600">{{ stats.hired }}</div>
+    </div>
+  </div>
+
+  <div class="flex items-center gap-1 border-b border-gray-200">
+    <button @click="tab = 'profiles'"
+            :class="tab === 'profiles' ? 'border-brand-500 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors">
+      职位管理
+    </button>
+    <button @click="tab = 'candidates'"
+            :class="tab === 'candidates' ? 'border-brand-500 text-brand-700' : 'border-transparent text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors">
+      候选人管理
+    </button>
+  </div>
+
+  <!-- Profiles Tab -->
+  <div x-show="tab === 'profiles'" x-cloak>
+    {% if profiles %}
+    <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">画像 ID</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">团队</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">来源</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">创建时间</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for p in profiles %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5">
+              <div class="font-medium text-gray-800">{{ p.id }}</div>
+            </td>
+            <td class="px-4 py-2.5 text-gray-500">{{ team_map.get(p.team_id, p.team_id) }}</td>
+            <td class="px-4 py-2.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
+                {% if p.source == 'auto' %}bg-blue-100 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+                {{ '自动生成' if p.source == 'auto' else '手动创建' }}
+              </span>
+            </td>
+            <td class="px-4 py-2.5 text-xs text-gray-400 hidden lg:table-cell">{{ p.created_at[:16] if p.created_at else '-' }}</td>
+            <td class="px-4 py-2.5">
+              <a href="/hiring/candidates/{{ p.id }}" class="text-xs text-brand-600 hover:text-brand-700">查看候选人</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无招聘画像</h3>
+      <p class="text-xs text-gray-400 mb-4">创建招聘画像以开始招聘流程</p>
+      <button onclick="document.getElementById('create-profile-modal').classList.remove('hidden')"
+              class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">新建画像</button>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Candidates Tab -->
+  <div x-show="tab === 'candidates'" x-cloak>
+    {% if candidates %}
+    <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">姓名</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden md:table-cell">应聘职位</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden md:table-cell">团队</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">状态</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">综合评分</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">创建时间</th>
+            <th class="text-left px-4 py-2.5 font-medium text-gray-600">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for c in candidates %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5">
+              <div class="font-medium text-gray-800">{{ c.name }}</div>
+              <div class="text-xs text-gray-400 truncate max-w-xs hidden md:block">{{ c.resume_summary[:40] if c.resume_summary else '' }}</div>
+            </td>
+            <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">{{ c.position or '-' }}</td>
+            <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">{{ team_map.get(c.team_id, c.team_id) }}</td>
+            <td class="px-4 py-2.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
+                {% if c.status == 'pending' %}bg-gray-100 text-gray-600
+                {% elif c.status == 'screening' %}bg-yellow-100 text-yellow-700
+                {% elif c.status == 'interview' %}bg-blue-100 text-blue-700
+                {% elif c.status == 'scored' %}bg-purple-100 text-purple-700
+                {% elif c.status == 'offered' %}bg-indigo-100 text-indigo-700
+                {% elif c.status == 'hired' %}bg-green-100 text-green-700
+                {% elif c.status == 'rejected' %}bg-red-100 text-red-700
+                {% else %}bg-gray-100 text-gray-600{% endif %}">{{ c.status|zh_candidate_status }}</span>
+            </td>
+            <td class="px-4 py-2.5 text-sm text-gray-600 hidden lg:table-cell">{{ '%.1f'|format(c.overall_score) if c.overall_score is not none else '-' }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-400 hidden lg:table-cell">{{ c.created_at[:10] if c.created_at else '-' }}</td>
+            <td class="px-4 py-2.5">
+              <div x-data="{ open: false }" class="relative">
+                <button @click="open = !open" class="text-xs text-brand-600 hover:text-brand-700">更新状态 ▾</button>
+                <div x-show="open" @click.away="open = false" x-cloak
+                     class="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                  {% for s in ['screening', 'interview', 'offered', 'hired', 'rejected'] %}
+                  {% if s != c.status %}
+                  <form method="post" action="/hiring/candidate/{{ c.id }}/status">
+                    <input type="hidden" name="status" value="{{ s }}">
+                    <button type="submit" class="block w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50">{{ s|zh_candidate_status }}</button>
+                  </form>
+                  {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+      <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无候选人</h3>
+      <p class="text-xs text-gray-400 mb-4">添加候选人以开始招聘流程</p>
+      <button onclick="document.getElementById('add-candidate-modal').classList.remove('hidden')"
+              class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">添加候选人</button>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Create Profile Modal -->
+<div id="create-profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-md mx-4 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-gray-800">新建招聘画像</h3>
+      <button onclick="document.getElementById('create-profile-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+    </div>
+    <form method="post" action="/hiring/profile" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">团队 <span class="text-red-500">*</span></label>
+        <select name="team_id" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          <option value="">选择团队</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">来源</label>
+        <select name="source" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          <option value="auto">自动（基于高绩效员工）</option>
+          <option value="manual">手动创建</option>
+        </select>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('create-profile-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">创建</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Add Candidate Modal -->
+<div id="add-candidate-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-md mx-4 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-gray-800">添加候选人</h3>
+      <button onclick="document.getElementById('add-candidate-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+    </div>
+    <form method="post" action="/hiring/candidate" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">姓名 <span class="text-red-500">*</span></label>
+        <input type="text" name="name" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">团队 <span class="text-red-500">*</span></label>
+        <select name="team_id" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          <option value="">选择团队</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">应聘职位</label>
+        <input type="text" name="position" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">简历摘要</label>
+        <textarea name="resume_summary" rows="3" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none resize-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('add-candidate-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">添加</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

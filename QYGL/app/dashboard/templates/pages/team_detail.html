@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+{% block title %}{{ team.display_name or team.name }} — 团队详情{% endblock %}
+{% block page_title %}
+<a href="/teams" class="text-gray-400 hover:text-gray-600">团队</a>
+<span class="text-gray-300 mx-1">/</span>
+{{ team.display_name or team.name }}
+{% endblock %}
+
+{% block content %}
+<div x-data="{ activeTab: '{{ tab }}' }" class="flex gap-4">
+
+  <!-- Main content -->
+  <div class="flex-1 min-w-0 space-y-4">
+
+    <!-- Tab groups -->
+    <div class="rounded-lg border border-gray-200 bg-white">
+      <div class="border-b border-gray-200 px-4 overflow-x-auto">
+        <div class="flex gap-0.5 -mb-px text-sm">
+          <!-- Group 1: 基本配置 -->
+          {% set tabs_g1 = [('basic', '基本信息'), ('prompt', '提示词'), ('model', '模型配置'), ('bot', 'IM机器人')] %}
+          {% for key, label in tabs_g1 %}
+          <button @click="activeTab = '{{ key }}'"
+                  :class="activeTab === '{{ key }}' ? 'border-b-2 border-brand-600 text-brand-700 font-medium' : 'text-gray-500 hover:text-gray-700'"
+                  class="px-3 py-2.5 whitespace-nowrap">{{ label }}</button>
+          {% endfor %}
+          <div class="w-px bg-gray-200 mx-1 my-2"></div>
+          <!-- Group 2: 能力配置 -->
+          {% set tabs_g2 = [('skills', '技能'), ('subagents', '子智能体'), ('staff', '员工'), ('kpi', 'KPI')] %}
+          {% for key, label in tabs_g2 %}
+          <button @click="activeTab = '{{ key }}'"
+                  :class="activeTab === '{{ key }}' ? 'border-b-2 border-brand-600 text-brand-700 font-medium' : 'text-gray-500 hover:text-gray-700'"
+                  class="px-3 py-2.5 whitespace-nowrap">{{ label }}</button>
+          {% endfor %}
+          <div class="w-px bg-gray-200 mx-1 my-2"></div>
+          <!-- Group 3: 数据与规则 -->
+          {% set tabs_g3 = [('datascope', '数据范围'), ('knowledge', '知识库'), ('escalation', '升级规则'), ('reports', '日报模板')] %}
+          {% for key, label in tabs_g3 %}
+          <button @click="activeTab = '{{ key }}'"
+                  :class="activeTab === '{{ key }}' ? 'border-b-2 border-brand-600 text-brand-700 font-medium' : 'text-gray-500 hover:text-gray-700'"
+                  class="px-3 py-2.5 whitespace-nowrap">{{ label }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Tab: Basic -->
+      <div x-show="activeTab === 'basic'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-xl">
+          <input type="hidden" name="tab" value="basic">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">团队名称</label>
+            <input type="text" name="name" value="{{ team.name }}" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">显示名称</label>
+            <input type="text" name="display_name" value="{{ team.display_name }}" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">部门</label>
+            <input type="text" name="department" value="{{ team.department }}" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">状态</label>
+            <select name="status" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+              {% for s in ['draft', 'active', 'shadow', 'live', 'disabled'] %}
+              <option value="{{ s }}" {% if team.status == s %}selected{% endif %}>{{ s|zh_team_status }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">自动化级别</label>
+            <select name="automation_profile" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+              {% for p in ['startup', 'mid_manager', 'process_driven'] %}
+              <option value="{{ p }}" {% if team.automation_profile == p %}selected{% endif %}>{{ p|zh_automation_profile }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Prompt -->
+      <div x-show="activeTab === 'prompt'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-2xl">
+          <input type="hidden" name="tab" value="prompt">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">系统提示词</label>
+            <textarea name="system_prompt" rows="16" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-y">{{ team.system_prompt }}</textarea>
+            <p class="text-xs text-gray-400 mt-1">定义AI助手的角色、行为准则和输出格式</p>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Model -->
+      <div x-show="activeTab === 'model'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-xl">
+          <input type="hidden" name="tab" value="model">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">主模型</label>
+            <select name="primary_model" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+              <option value="">未选择</option>
+              {% for m in models %}
+              <option value="{{ m.id }}" {% if team.primary_model == m.id %}selected{% endif %}>{{ m.name }} ({{ m.provider }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">备用模型</label>
+            <select name="fallback_model" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+              <option value="">未选择</option>
+              {% for m in models %}
+              <option value="{{ m.id }}" {% if team.fallback_model == m.id %}selected{% endif %}>{{ m.name }} ({{ m.provider }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Bot -->
+      <div x-show="activeTab === 'bot'" class="p-5">
+        <div class="space-y-4">
+          {% if team.bots %}
+            {% for bot in team.bots %}
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-700">{{ bot.channel|zh_channel }}</span>
+                  {% if bot.verified %}
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">已验证</span>
+                  {% else %}
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">待验证</span>
+                  {% endif %}
+                </div>
+                <span class="text-xs text-gray-400">{{ bot.created_at[:10] if bot.created_at else '' }}</span>
+              </div>
+              <div class="text-xs text-gray-500 space-y-1">
+                <div>App ID: {{ '***已配置' if bot.app_id_encrypted else '未配置' }}</div>
+                <div>Webhook: {{ bot.webhook_url[:40] + '...' if bot.webhook_url and bot.webhook_url|length > 40 else bot.webhook_url or '未配置' }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-center py-6">
+            <p class="text-sm text-gray-400">暂无机器人配置</p>
+            <p class="text-xs text-gray-300 mt-1">可在设置向导中配置，或联系管理员</p>
+          </div>
+          {% endif %}
+
+          <button onclick="fetch('/teams/{{ team.id }}/test-bot', {method:'POST'}).then(r=>r.json()).then(d=>{alert(JSON.stringify(d.results||d,null,2))})"
+                  class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">
+            测试机器人连接
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab: Skills -->
+      <div x-show="activeTab === 'skills'" class="p-5">
+        <div class="space-y-3">
+          {% if team_skills %}
+            {% for ts in team_skills %}
+            <div class="flex items-center justify-between border border-gray-200 rounded-lg px-4 py-3">
+              <div>
+                <span class="text-sm font-medium text-gray-700">{{ ts.skill_id }}</span>
+                <span class="text-xs text-gray-400 ml-2">分配: {{ ts.assigned_to }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-center py-6">
+            <p class="text-sm text-gray-400">暂无技能配置</p>
+            <p class="text-xs text-gray-300 mt-1">技能定义了AI能执行的操作</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Tab: SubAgents -->
+      <div x-show="activeTab === 'subagents'" class="p-5">
+        <div class="space-y-3">
+          {% if sub_agents %}
+            {% for sa in sub_agents %}
+            <div class="border border-gray-200 rounded-lg px-4 py-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="text-sm font-medium text-gray-700">{{ sa.display_name or sa.name }}</span>
+                  <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{{ sa.role|zh_sub_agent_role }}</span>
+                </div>
+                <span class="text-xs text-gray-400">P{{ sa.max_permission }}</span>
+              </div>
+              {% if sa.description %}
+              <p class="text-xs text-gray-500 mt-1">{{ sa.description }}</p>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="text-center py-6">
+            <p class="text-sm text-gray-400">暂无子智能体</p>
+            <p class="text-xs text-gray-300 mt-1">子智能体可分担不同领域的工作</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Tab: Staff -->
+      <div x-show="activeTab === 'staff'" class="p-5">
+        {% if employees %}
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="text-left px-4 py-2 font-medium text-gray-600">姓名</th>
+                <th class="text-left px-4 py-2 font-medium text-gray-600">角色</th>
+                <th class="text-left px-4 py-2 font-medium text-gray-600">部门</th>
+                <th class="text-left px-4 py-2 font-medium text-gray-600">状态</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              {% for emp in employees %}
+              <tr class="hover:bg-gray-50">
+                <td class="px-4 py-2 text-gray-800">{{ emp.name }}</td>
+                <td class="px-4 py-2">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs
+                    {% if emp.role == 'boss' %}bg-purple-100 text-purple-700
+                    {% elif emp.role == 'manager' %}bg-blue-100 text-blue-700
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">{{ emp.role|zh_employee_role }}</span>
+                </td>
+                <td class="px-4 py-2 text-gray-500">{{ emp.department or '-' }}</td>
+                <td class="px-4 py-2">
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs
+                    {% if emp.status == 'active' %}bg-green-100 text-green-700
+                    {% elif emp.status == 'transferring' %}bg-yellow-100 text-yellow-700
+                    {% else %}bg-red-100 text-red-600{% endif %}">{{ emp.status|zh_employee_status }}</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-6">
+          <p class="text-sm text-gray-400">暂无团队成员</p>
+          <p class="text-xs text-gray-300 mt-1">添加员工后AI才能与他们互动</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Tab: KPI -->
+      <div x-show="activeTab === 'kpi'" class="p-5">
+        {% if kpi_definitions %}
+        <div class="space-y-3">
+          {% for kpi in kpi_definitions %}
+          <a href="/kpi/{{ kpi.id }}" class="block border border-gray-200 rounded-lg px-4 py-3 hover:border-brand-300 transition-colors">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-700">{{ kpi.name }}</span>
+              <span class="text-xs text-gray-400">{{ kpi.period|zh_kpi_period }}</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-1">目标: {{ kpi.target_value }} · 权重: {{ kpi.weight }}</div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-6">
+          <p class="text-sm text-gray-400">暂无KPI定义</p>
+          <a href="/kpi" class="text-xs text-brand-600 hover:text-brand-700">前往KPI管理创建</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Tab: Data Scope -->
+      <div x-show="activeTab === 'datascope'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-2xl">
+          <input type="hidden" name="tab" value="datascope">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">数据范围 (JSON)</label>
+            <textarea name="data_scope_json" rows="10" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none resize-y">{{ team.data_scope_json if team.data_scope_json is string else team.data_scope_json|tojson(indent=2) }}</textarea>
+            <p class="text-xs text-gray-400 mt-1">定义此团队可以访问的数据范围</p>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Knowledge -->
+      <div x-show="activeTab === 'knowledge'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-2xl">
+          <input type="hidden" name="tab" value="knowledge">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">知识范围 (JSON)</label>
+            <textarea name="knowledge_scope_json" rows="10" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none resize-y">{{ team.knowledge_scope_json if team.knowledge_scope_json is string else team.knowledge_scope_json|tojson(indent=2) }}</textarea>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Escalation -->
+      <div x-show="activeTab === 'escalation'" class="p-5">
+        <form method="post" action="/teams/{{ team.id }}/update" class="space-y-4 max-w-2xl">
+          <input type="hidden" name="tab" value="escalation">
+          <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">升级规则 (JSON)</label>
+            <textarea name="escalation_json" rows="10" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none resize-y">{{ team.escalation_json if team.escalation_json is string else team.escalation_json|tojson(indent=2) }}</textarea>
+            <p class="text-xs text-gray-400 mt-1">定义超时升级的时间间隔和层级</p>
+          </div>
+          <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+        </form>
+      </div>
+
+      <!-- Tab: Report templates -->
+      <div x-show="activeTab === 'reports'" class="p-5">
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div>
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">新建模板</h4>
+            <form method="post" action="/teams/{{ team.id }}/report-template" class="space-y-3 max-w-lg">
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">名称 <span class="text-red-500">*</span></label>
+                <input type="text" name="name" required
+                       class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">类型</label>
+                <select name="report_type" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+                  {% for rt in report_types %}
+                  <option value="{{ rt }}">{% if rt == 'daily' %}日报{% elif rt == 'weekly' %}周报{% else %}月报{% endif %}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">模板正文</label>
+                <textarea name="template_content" rows="10"
+                          class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-mono focus:border-brand-500 outline-none resize-y"
+                          placeholder="支持多行，员工可按此结构填写日报"></textarea>
+              </div>
+              <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">创建模板</button>
+            </form>
+          </div>
+          <div>
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">已有模板</h4>
+            {% if report_templates %}
+            <div class="space-y-4">
+              {% for tpl in report_templates %}
+              <div class="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span class="text-sm font-medium text-gray-800">{{ tpl.name }}</span>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-white border border-gray-200 text-gray-600">
+                    {% if tpl.report_type == 'daily' %}日报{% elif tpl.report_type == 'weekly' %}周报{% else %}月报{% endif %}
+                  </span>
+                </div>
+                <p class="text-xs text-gray-400 mb-2">{{ tpl.created_at[:19] if tpl.created_at else '' }}</p>
+                <pre class="text-xs text-gray-700 whitespace-pre-wrap font-mono bg-white border border-gray-100 rounded-md p-3 max-h-48 overflow-y-auto">{{ tpl.template_content or '（空）' }}</pre>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">暂无日报模板，可在左侧创建。</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right action bar -->
+  <div class="hidden lg:block w-48 flex-shrink-0">
+    <div class="sticky top-4 space-y-2">
+      <div class="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+        <div class="text-xs font-medium text-gray-500 mb-2">操作</div>
+        <button type="button"
+                @click="$dispatch('confirm-action', { title: '发布团队', message: '确认将团队设为活跃状态？', action: '/teams/{{ team.id }}/publish', method: 'POST' })"
+                class="w-full px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700 text-center">
+          发布
+        </button>
+        <a href="/teams/{{ team.id }}?tab={{ tab }}" class="block w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 text-center">
+          刷新
+        </a>
+        <button type="button"
+                @click="$dispatch('confirm-action', { title: '删除团队', message: '此操作不可撤销。确认删除该团队？', action: '/teams/{{ team.id }}/delete', method: 'POST' })"
+                class="w-full px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50 text-center">
+          删除
+        </button>
+      </div>
+
+      <div class="rounded-lg border border-gray-200 bg-white p-3">
+        <div class="text-xs font-medium text-gray-500 mb-2">信息</div>
+        <div class="space-y-1.5 text-xs text-gray-500">
+          <div class="flex justify-between">
+            <span>ID</span>
+            <span class="font-mono text-gray-400">{{ team.id }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>状态</span>
+            <span class="font-medium
+              {% if team.status in ['active', 'live'] %}text-green-600
+              {% elif team.status == 'shadow' %}text-yellow-600
+              {% else %}text-gray-500{% endif %}">{{ team.status|zh_team_status }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span>创建</span>
+            <span>{{ team.created_at[:10] if team.created_at else '-' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

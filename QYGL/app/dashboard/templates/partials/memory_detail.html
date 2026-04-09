@@ -1,0 +1,52 @@
+<!-- HTMX partial: memory detail loaded inline -->
+<div class="space-y-4">
+  <div class="flex items-start justify-between">
+    <div>
+      {% if memory.layer == 'L1' %}
+      <span class="inline-flex px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ memory.layer|zh_memory_layer }}</span>
+      {% elif memory.layer == 'L2' %}
+      <span class="inline-flex px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700">{{ memory.layer|zh_memory_layer }}</span>
+      {% elif memory.layer == 'L3' %}
+      <span class="inline-flex px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">{{ memory.layer|zh_memory_layer }}</span>
+      {% elif memory.layer == 'L4' %}
+      <span class="inline-flex px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700">{{ memory.layer|zh_memory_layer }}</span>
+      {% else %}
+      <span class="inline-flex px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ memory.layer|zh_memory_layer }}</span>
+      {% endif %}
+      <p class="text-xs text-gray-400 mt-1">{{ layer_desc }}</p>
+    </div>
+    {% if memory.is_verified %}
+    <span class="text-green-600 text-xs font-medium">✓ 已验证</span>
+    {% endif %}
+  </div>
+
+  <div class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed border border-gray-100 rounded-lg p-3 bg-gray-50">{{ memory.content }}</div>
+
+  <div class="grid grid-cols-2 gap-3 text-sm">
+    <div>
+      <span class="text-xs text-gray-500">来源</span>
+      <div class="text-gray-800">{{ memory.source or '—' }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">创建者</span>
+      <div class="text-gray-800">{{ memory.created_by or '系统' }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">引用次数</span>
+      <div class="text-gray-800">{{ memory.reference_count or 0 }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">创建时间</span>
+      <div class="text-gray-800">{{ memory.created_at[:16] if memory.created_at else '—' }}</div>
+    </div>
+  </div>
+
+  {% if metadata %}
+  <div class="border-t border-gray-100 pt-3">
+    <h4 class="text-xs font-medium text-gray-500 mb-1">元数据</h4>
+    <pre class="text-xs font-mono text-gray-500 bg-gray-50 rounded p-2 overflow-x-auto">{{ metadata | tojson(indent=2) }}</pre>
+  </div>
+  {% endif %}
+
+  <a href="/memory/{{ memory.id }}" class="block text-center text-xs text-brand-600 hover:underline pt-2">查看完整详情 →</a>
+</div>

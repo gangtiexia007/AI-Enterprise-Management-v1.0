@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>配置完成 — 设置向导</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eff6ff', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8' } } } } }</script>
+  <style>
+    @keyframes wizard-confetti-fall {
+      0% { transform: translateY(-120%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(420%) rotate(720deg); opacity: 0.85; }
+    }
+    @keyframes wizard-pop {
+      0% { transform: scale(0.6); opacity: 0; }
+      55% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .wizard-confetti-piece {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      animation: wizard-confetti-fall 2.8s ease-in forwards;
+    }
+    .wizard-success-icon {
+      animation: wizard-pop 0.65s ease-out both;
+    }
+  </style>
+</head>
+<body class="h-full bg-gray-50 flex items-center justify-center overflow-x-hidden">
+  <div class="w-full max-w-lg mx-4 relative">
+    <div class="bg-white border border-gray-200 rounded-lg p-8 text-center relative overflow-hidden">
+      <!-- lightweight confetti layer -->
+      <div class="pointer-events-none absolute inset-x-0 top-0 h-32 overflow-hidden" aria-hidden="true">
+        <span class="wizard-confetti-piece bg-yellow-400 left-[8%]" style="animation-delay: 0s;"></span>
+        <span class="wizard-confetti-piece bg-green-400 left-[18%]" style="animation-delay: 0.15s; width:6px;height:10px;"></span>
+        <span class="wizard-confetti-piece bg-blue-500 left-[32%]" style="animation-delay: 0.05s;"></span>
+        <span class="wizard-confetti-piece bg-pink-400 left-[48%]" style="animation-delay: 0.2s; width:7px;height:7px;border-radius:50%;"></span>
+        <span class="wizard-confetti-piece bg-purple-400 left-[62%]" style="animation-delay: 0.1s;"></span>
+        <span class="wizard-confetti-piece bg-orange-400 left-[78%]" style="animation-delay: 0.25s;"></span>
+        <span class="wizard-confetti-piece bg-cyan-400 left-[88%]" style="animation-delay: 0.18s; width:5px;height:12px;"></span>
+      </div>
+
+      {% include "wizard/_progress.html" %}
+
+      <div class="wizard-success-icon w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-green-100">
+        <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+
+      <h1 class="text-xl font-bold text-gray-800 mb-1">配置完成</h1>
+      <p class="text-xs text-gray-400 mb-2">步骤 7 / 7</p>
+      <p class="text-sm text-gray-600 mb-2 font-medium">恭喜！向导配置已全部完成</p>
+      <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+        团队已进入<strong class="text-gray-700">影子模式</strong>，系统将在后台运行观察，暂不执行实际操作。您可在登录总览后查看团队与审批数据。
+      </p>
+
+      {% if team %}
+      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-left">
+        <h3 class="text-sm font-semibold text-gray-700 mb-3">完成摘要</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-500 flex-shrink-0">团队名称</span>
+            <span class="text-gray-800 font-medium text-right">{{ team.name }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-500 flex-shrink-0">自动化档案</span>
+            <span class="text-gray-800 text-right">{{ team.automation_profile|zh_automation_profile }}</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-500 flex-shrink-0">成员数量</span>
+            <span class="text-gray-800 text-right">{{ team.employees|length if team.employees else 0 }} 人</span>
+          </div>
+          <div class="flex justify-between gap-4">
+            <span class="text-gray-500 flex-shrink-0">IM 机器人</span>
+            <span class="text-gray-800 text-right">{{ team.bots|length if team.bots else 0 }} 个已配置</span>
+          </div>
+          <div class="flex justify-between gap-4 items-center">
+            <span class="text-gray-500 flex-shrink-0">运行模式</span>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">影子模式</span>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 text-left mb-6">
+        未检测到向导中创建的团队（可能已跳过部分步骤）。提交后仍可登录系统在「团队管理」中补全配置。
+      </div>
+      {% endif %}
+
+      <form method="post" action="/wizard/step7" class="inline-block">
+        <button type="submit" class="inline-block rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors shadow-sm">
+          进入系统
+        </button>
+      </form>
+      <p class="text-xs text-gray-400 mt-4">提交后将跳转至登录页（若已登录则进入总览），并提示配置成功。</p>
+    </div>
+  </div>
+</body>
+</html>

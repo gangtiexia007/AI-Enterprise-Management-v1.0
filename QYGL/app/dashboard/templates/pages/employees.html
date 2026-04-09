@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}员工管理 — 千方百计AI{% endblock %}
+{% block page_title %}员工管理{% endblock %}
+
+{% block header_actions %}
+<div class="flex items-center gap-2">
+  <select onchange="location.href='/employees?team_id='+this.value+'&role={{ role_filter }}'"
+          class="text-sm border border-gray-200 rounded-xl px-3 py-1.5 bg-white focus:ring-2 focus:ring-brand-100 focus:border-brand-400 outline-none">
+    <option value="">全部团队</option>
+    {% for t in teams %}
+    <option value="{{ t.id }}" {% if team_filter == t.id %}selected{% endif %}>{{ t.display_name or t.name }}</option>
+    {% endfor %}
+  </select>
+  <select onchange="location.href='/employees?team_id={{ team_filter }}&role='+this.value"
+          class="text-sm border border-gray-200 rounded-xl px-3 py-1.5 bg-white focus:ring-2 focus:ring-brand-100 focus:border-brand-400 outline-none">
+    <option value="">全部角色</option>
+    {% for r in roles %}
+    <option value="{{ r }}" {% if role_filter == r %}selected{% endif %}>{{ r|zh_role }}</option>
+    {% endfor %}
+  </select>
+  <a href="/employees/new" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-sm">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>
+    添加员工
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-4 animate-fade-in-up">
+
+  <!-- Stats -->
+  <div class="flex items-center gap-6 text-sm">
+    <span class="text-gray-500">共 <strong class="text-gray-900">{{ employees|length }}</strong> 名员工</span>
+    {% if team_filter %}
+    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-brand-50 text-brand-600 text-xs font-medium">
+      已筛选
+      <a href="/employees" class="text-brand-400 hover:text-brand-600">&times;</a>
+    </span>
+    {% endif %}
+  </div>
+
+  {% if employees %}
+  <div class="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100 text-left text-xs font-medium text-gray-500">
+          <th class="px-5 py-3">姓名</th>
+          <th class="px-5 py-3">团队</th>
+          <th class="px-5 py-3">角色</th>
+          <th class="px-5 py-3">直属上级</th>
+          <th class="px-5 py-3">状态</th>
+          <th class="px-5 py-3 text-right">操作</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for e in employees %}
+        <tr class="hover:bg-gray-50/60 transition-colors {% if highlight_id == e.id %}bg-brand-50{% endif %}">
+          <td class="px-5 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
+                {{ (e.name or '?')[0] }}
+              </div>
+              <div>
+                <a href="/employees/{{ e.id }}" class="font-medium text-gray-900 hover:text-brand-600">{{ e.name }}</a>
+                {% if e.email %}
+                <div class="text-[11px] text-gray-400">{{ e.email }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td class="px-5 py-3">
+            <span class="text-gray-600">{{ e.team_name }}</span>
+          </td>
+          <td class="px-5 py-3">
+            <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium
+              {% if e.role == 'boss' %}bg-purple-50 text-purple-700
+              {% elif e.role == 'manager' %}bg-blue-50 text-blue-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">{{ e.role|zh_role }}</span>
+          </td>
+          <td class="px-5 py-3 text-gray-500 text-sm">{{ e.manager_name or '—' }}</td>
+          <td class="px-5 py-3">
+            {% if e.status == 'active' %}
+            <div class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-green-500"></div><span class="text-xs text-green-600">在职</span></div>
+            {% else %}
+            <div class="flex items-center gap-1.5"><div class="w-1.5 h-1.5 rounded-full bg-gray-300"></div><span class="text-xs text-gray-400">{{ e.status or '未知' }}</span></div>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-right">
+            <a href="/employees/{{ e.id }}" class="text-xs text-brand-600 hover:text-brand-800 font-medium">详情 →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-2xl border border-dashed border-gray-300 bg-white p-16 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+      <svg class="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg>
+    </div>
+    <h3 class="text-base font-semibold text-gray-800 mb-1">还没有员工</h3>
+    <p class="text-sm text-gray-500 mb-4">添加第一位团队成员</p>
+    <a href="/employees/new" class="inline-flex items-center gap-1.5 px-5 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 transition-colors shadow-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14"/></svg>
+      添加员工
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

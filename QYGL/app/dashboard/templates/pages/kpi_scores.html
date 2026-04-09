@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}KPI 评分记录 — 千方百计AI{% endblock %}
+{% block page_title %}KPI 评分记录{% endblock %}
+
+{% block header_actions %}
+<button type="button" onclick="document.getElementById('score-modal').classList.remove('hidden')"
+        class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">
+  + 录入评分
+</button>
+<a href="/kpi" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">KPI 定义</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="rounded-lg border border-gray-200 bg-white p-4">
+    <form method="get" action="/kpi/scores" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">团队</label>
+        <select name="team_id" class="rounded-md border border-gray-300 px-3 py-2 text-sm min-w-[10rem] focus:border-brand-500 outline-none">
+          <option value="">全部</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if team_filter == t.id %}selected{% endif %}>{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">员工</label>
+        <select name="employee_id" class="rounded-md border border-gray-300 px-3 py-2 text-sm min-w-[10rem] focus:border-brand-500 outline-none">
+          <option value="">全部</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}" {% if employee_filter == e.id %}selected{% endif %}>{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">周期（年月）</label>
+        <input type="month" name="period_key" value="{{ period_filter }}"
+               class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <button type="submit" class="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md border border-gray-200 hover:bg-gray-50">筛选</button>
+      {% if team_filter or employee_filter or period_filter %}
+      <a href="/kpi/scores" class="px-3 py-2 text-sm text-brand-600 hover:text-brand-700">清除</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if score_rows %}
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <tr>
+            <th class="px-4 py-3">员工</th>
+            <th class="px-4 py-3">KPI 指标</th>
+            <th class="px-4 py-3">周期</th>
+            <th class="px-4 py-3">得分</th>
+            <th class="px-4 py-3">等级</th>
+            <th class="px-4 py-3">反馈</th>
+            <th class="px-4 py-3">评分时间</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for row in score_rows %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 font-medium text-gray-800">{{ row.employee_name }}</td>
+            <td class="px-4 py-2.5 text-gray-700">{{ row.kpi_name }}</td>
+            <td class="px-4 py-2.5"><span class="inline-flex px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{{ row.period_key }}</span></td>
+            <td class="px-4 py-2.5 text-gray-600">{{ row.total_score }}</td>
+            <td class="px-4 py-2.5">
+              {% set g = (row.grade or '')|upper %}
+              {% if g == 'A' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{{ g|zh_kpi_grade }}</span>
+              {% elif g == 'B' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{{ g|zh_kpi_grade }}</span>
+              {% elif g == 'C' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{{ g|zh_kpi_grade }}</span>
+              {% elif g == 'D' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">{{ g|zh_kpi_grade }}</span>
+              {% else %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{{ row.grade or '—' }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-gray-500 max-w-xs truncate" title="{{ row.feedback or '' }}">{{ row.feedback or '—' }}</td>
+            <td class="px-4 py-2.5 text-xs text-gray-400">{{ row.scored_at or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+    <p class="text-sm text-gray-500 mb-4">暂无评分记录。可点击「录入评分」或从 KPI 详情页查看单指标趋势。</p>
+    <button type="button" onclick="document.getElementById('score-modal').classList.remove('hidden')"
+            class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">录入评分</button>
+  </div>
+  {% endif %}
+</div>
+
+<div id="score-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-md mx-4 p-5 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-gray-800">录入 / 更新 KPI 评分</h3>
+      <button type="button" onclick="document.getElementById('score-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+    </div>
+    <p class="text-xs text-gray-500 mb-3">同一员工、同一指标、同一周期将更新已有记录。</p>
+    <form method="post" action="/kpi/scores" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">KPI 指标 <span class="text-red-500">*</span></label>
+        <select name="kpi_def_id" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          {% for kd in kpi_defs %}
+          <option value="{{ kd.id }}">[{{ kd.team_label }}] {{ kd.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">员工 <span class="text-red-500">*</span></label>
+        <select name="employee_id" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          {% for e in employees %}
+          <option value="{{ e.id }}">{{ e.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">考核周期 <span class="text-red-500">*</span></label>
+        <input type="month" name="period_key" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">得分</label>
+        <input type="number" name="total_score" value="0" step="0.01" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">等级 <span class="text-red-500">*</span></label>
+        <select name="grade" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+          <option value="A">优秀 (A)</option>
+          <option value="B">良好 (B)</option>
+          <option value="C">待改进 (C)</option>
+          <option value="D">不合格 (D)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">反馈</label>
+        <textarea name="feedback" rows="3" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="document.getElementById('score-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}记忆详情 — 千方百计AI{% endblock %}
+{% block page_title %}
+<div class="flex items-center gap-2">
+  <a href="/memory" class="text-gray-400 hover:text-gray-600">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+  </a>
+  记忆详情
+  {% if memory.layer == 'L1' %}
+  <span class="inline-flex px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ memory.layer|zh_memory_layer }}</span>
+  {% elif memory.layer == 'L2' %}
+  <span class="inline-flex px-2 py-0.5 text-xs rounded bg-orange-100 text-orange-700">{{ memory.layer|zh_memory_layer }}</span>
+  {% elif memory.layer == 'L3' %}
+  <span class="inline-flex px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">{{ memory.layer|zh_memory_layer }}</span>
+  {% elif memory.layer == 'L4' %}
+  <span class="inline-flex px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700">{{ memory.layer|zh_memory_layer }}</span>
+  {% else %}
+  <span class="inline-flex px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-600">{{ memory.layer|zh_memory_layer }}</span>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+  <!-- Main content -->
+  <div class="lg:col-span-2 space-y-4">
+    <div class="rounded-lg border border-gray-200 bg-white p-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-1">{{ layer_desc }}</h3>
+      <div class="mt-4 text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{{ memory.content }}</div>
+    </div>
+
+    {% if metadata %}
+    <div class="rounded-lg border border-gray-200 bg-white p-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">元数据</h3>
+      <div class="bg-gray-50 rounded-md p-3 text-xs font-mono text-gray-600 overflow-x-auto">
+        <pre>{{ metadata | tojson(indent=2) }}</pre>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar: audit info -->
+  <div class="space-y-4">
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">审计信息</h3>
+      <dl class="space-y-2.5 text-sm">
+        <div>
+          <dt class="text-gray-500 text-xs">记忆 ID</dt>
+          <dd class="font-mono text-gray-800 text-xs">{{ memory.id }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">层级</dt>
+          <dd class="font-medium text-gray-800">{{ memory.layer|zh_memory_layer }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">来源</dt>
+          <dd class="text-gray-800">{{ memory.source or '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">创建者</dt>
+          <dd class="text-gray-800">{{ memory.created_by or '系统' }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">创建时间</dt>
+          <dd class="text-gray-800">{{ memory.created_at[:16] if memory.created_at else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">引用次数</dt>
+          <dd class="text-gray-800">{{ memory.reference_count or 0 }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">最后引用</dt>
+          <dd class="text-gray-800">{{ memory.last_referenced_at[:16] if memory.last_referenced_at else '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">已验证</dt>
+          <dd class="text-gray-800">{% if memory.is_verified %}<span class="text-green-600">是</span>{% else %}否{% endif %}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500 text-xs">过期时间</dt>
+          <dd class="text-gray-800">{{ memory.expires_at[:16] if memory.expires_at else '永不过期' }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div>
+      <button x-data @click="$dispatch('confirm-action', { title:'删除记忆', message:'确定要删除这条记忆吗？此操作不可撤销。', action:'/memory/{{ memory.id }}/delete' })"
+              class="w-full px-3 py-2 text-sm border border-red-200 text-red-600 rounded-md hover:bg-red-50 text-center">
+        删除此记忆
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}

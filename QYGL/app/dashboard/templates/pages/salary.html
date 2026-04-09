@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}薪酬计算 — 千方百计AI{% endblock %}
+{% block page_title %}薪酬计算{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="rounded-lg border border-gray-200 bg-white p-4">
+    <h3 class="text-sm font-semibold text-gray-800 mb-3">计算薪酬</h3>
+    <p class="text-xs text-gray-500 mb-3">按团队与周期，根据该周期内 KPI 评分匹配 <code class="text-gray-600">reward_rules</code>（等级 → 公式）写入 <code class="text-gray-600">reward_calculations</code>。仅会删除并重建状态为「已计算」的同团队同周期记录；已审批/已发放的不受影响。</p>
+    <form method="post" action="/salary/calculate" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">团队 <span class="text-red-500">*</span></label>
+        <select name="team_id" required class="rounded-md border border-gray-300 px-3 py-2 text-sm min-w-[12rem] focus:border-brand-500 outline-none">
+          <option value="" disabled selected>选择团队</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}">{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">周期 <span class="text-red-500">*</span></label>
+        <input type="month" name="period" required
+               class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <button type="submit" class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">开始计算</button>
+    </form>
+  </div>
+
+  <div class="rounded-lg border border-gray-200 bg-white p-4">
+    <form method="get" action="/salary" class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">团队</label>
+        <select name="team_id" class="rounded-md border border-gray-300 px-3 py-2 text-sm min-w-[10rem] focus:border-brand-500 outline-none">
+          <option value="">全部</option>
+          {% for t in teams %}
+          <option value="{{ t.id }}" {% if team_filter == t.id %}selected{% endif %}>{{ t.display_name or t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">周期</label>
+        <input type="month" name="period" value="{{ period_filter }}"
+               class="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">状态</label>
+        <select name="status" class="rounded-md border border-gray-300 px-3 py-2 text-sm min-w-[9rem] focus:border-brand-500 outline-none">
+          <option value="">全部</option>
+          {% for s in status_options %}
+          <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|zh_reward_status }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md border border-gray-200 hover:bg-gray-50">筛选</button>
+      {% if team_filter or period_filter or status_filter %}
+      <a href="/salary" class="px-3 py-2 text-sm text-brand-600 hover:text-brand-700">清除</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if reward_rules %}
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+      <h3 class="text-sm font-semibold text-gray-700">当前奖惩规则（供对照）</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="text-left text-xs font-medium text-gray-500 border-b border-gray-100">
+          <tr>
+            <th class="px-4 py-2">团队</th>
+            <th class="px-4 py-2">规则名称</th>
+            <th class="px-4 py-2">KPI 等级</th>
+            <th class="px-4 py-2">公式</th>
+            <th class="px-4 py-2">说明</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for r in reward_rules %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2 text-gray-600">{{ r.team_display }}</td>
+            <td class="px-4 py-2 font-medium text-gray-800">{{ r.name }}</td>
+            <td class="px-4 py-2">{{ r.kpi_grade }}</td>
+            <td class="px-4 py-2 font-mono text-xs text-gray-600">{{ r.formula }}</td>
+            <td class="px-4 py-2 text-gray-500 text-xs">{{ r.description or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if calculations %}
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <div class="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+      <h3 class="text-sm font-semibold text-gray-700">计算结果</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <tr>
+            <th class="px-4 py-3">员工</th>
+            <th class="px-4 py-3">团队</th>
+            <th class="px-4 py-3">周期</th>
+            <th class="px-4 py-3">KPI 等级</th>
+            <th class="px-4 py-3">规则名称</th>
+            <th class="px-4 py-3 text-right">计算金额</th>
+            <th class="px-4 py-3">公式</th>
+            <th class="px-4 py-3">状态</th>
+            <th class="px-4 py-3">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for row in calculations %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 font-medium text-gray-800">{{ row.employee_name }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ row.team_display }}</td>
+            <td class="px-4 py-2.5"><span class="inline-flex px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600">{{ row.period }}</span></td>
+            <td class="px-4 py-2.5">
+              {% set kg = (row.kpi_grade or '')|upper %}
+              {% if kg == 'A' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">A</span>
+              {% elif kg == 'B' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">B</span>
+              {% elif kg == 'C' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">C</span>
+              {% elif kg == 'D' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">D</span>
+              {% else %}
+              <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-gray-700">{{ row.rule_name or '—' }}</td>
+            <td class="px-4 py-2.5 text-right font-mono text-gray-800">{{ (row.calculated_amount or 0)|round(2) }}</td>
+            <td class="px-4 py-2.5 font-mono text-xs text-gray-500 max-w-[14rem] truncate" title="{{ row.formula_used or '' }}">{{ row.formula_used or '—' }}</td>
+            <td class="px-4 py-2.5">
+              {% set st = row.status or '' %}
+              {% if st == 'calculated' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">{{ st|zh_reward_status }}</span>
+              {% elif st == 'pending_approval' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">{{ st|zh_reward_status }}</span>
+              {% elif st == 'approved' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{{ st|zh_reward_status }}</span>
+              {% elif st == 'paid' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-900">{{ st|zh_reward_status }}</span>
+              {% else %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">{{ st|zh_reward_status }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2.5 text-gray-400 text-xs">—</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-gray-200 bg-white p-10 text-center text-sm text-gray-500">
+    暂无薪酬计算记录。请先录入 KPI 评分，再选择团队与周期执行「计算薪酬」。
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+apscheduler
+httpx
+python-multipart
+openai

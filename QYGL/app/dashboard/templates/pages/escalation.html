@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}升级处理 — 千方百计AI{% endblock %}
+{% block page_title %}升级处理{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Layer 2: Stats -->
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">总升级数</div>
+      <div class="text-2xl font-bold text-gray-800">{{ stats.total }}</div>
+    </div>
+    <a href="/escalations?level=boss" class="stat-card rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">老板级别</div>
+      <div class="text-2xl font-bold text-red-600">{{ stats.boss_level }}</div>
+    </a>
+    <div class="rounded-lg border border-gray-200 bg-white p-4">
+      <div class="text-xs text-gray-500 font-medium mb-1">待响应</div>
+      <div class="text-2xl font-bold text-yellow-600">{{ stats.unresolved }}</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex flex-wrap items-center gap-3">
+    <span class="text-sm text-gray-500">级别:</span>
+    <a href="/escalations" class="px-2.5 py-1 text-xs rounded-md border {% if not level_filter %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}">全部</a>
+    {% for l in levels %}
+    <a href="/escalations?level={{ l }}"
+       class="px-2.5 py-1 text-xs rounded-md border {% if level_filter == l %}border-brand-500 bg-brand-50 text-brand-700{% else %}border-gray-200 text-gray-500{% endif %}
+       {% if l == 'boss' %}text-red-600{% elif l == 'manager' %}text-yellow-600{% else %}text-gray-600{% endif %}">{{ l|zh_escalation_level }}</a>
+    {% endfor %}
+  </div>
+
+  <!-- Layer 3: Escalation list -->
+  {% if escalations %}
+  <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">级别</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">消息</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden md:table-cell">关联任务</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600 hidden lg:table-cell">发送时间</th>
+          <th class="text-left px-4 py-2.5 font-medium text-gray-600">状态</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for esc in escalations %}
+        <tr class="hover:bg-gray-50 cursor-pointer" onclick="location.href='/escalations/{{ esc.task_id }}'">
+          <td class="px-4 py-2.5">
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium
+              {% if esc.level == 'boss' %}bg-red-100 text-red-700
+              {% elif esc.level == 'manager' %}bg-yellow-100 text-yellow-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">{{ esc.level|zh_escalation_level }}</span>
+          </td>
+          <td class="px-4 py-2.5 text-gray-800 truncate max-w-sm">{{ esc.message[:80] if esc.message else '-' }}</td>
+          <td class="px-4 py-2.5 text-gray-500 hidden md:table-cell">
+            {% if esc.task %}{{ esc.task.title[:30] }}{% else %}{{ esc.task_id[:8] }}{% endif %}
+          </td>
+          <td class="px-4 py-2.5 text-xs text-gray-400 hidden lg:table-cell">{{ esc.sent_at[:16] if esc.sent_at else '-' }}</td>
+          <td class="px-4 py-2.5">
+            {% if esc.response_at %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">已响应</span>
+            {% else %}
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">待响应</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+    <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01"/></svg>
+    <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无升级记录</h3>
+    <p class="text-xs text-gray-400 mb-4">当任务超时或需要更高级别介入时，升级将出现在这里</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

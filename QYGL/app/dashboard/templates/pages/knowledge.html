@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}知识库 — 千方百计AI{% endblock %}
+{% block page_title %}知识库{% endblock %}
+
+{% block header_actions %}
+<div class="flex flex-wrap gap-2">
+  <a href="/knowledge/pending" class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">待审知识</a>
+  <button type="button" onclick="document.getElementById('upload-file-modal').classList.remove('hidden')"
+          class="px-3 py-1.5 text-sm border border-brand-200 text-brand-700 rounded-md hover:bg-brand-50">上传文件</button>
+  <button onclick="document.getElementById('create-knowledge-modal').classList.remove('hidden')"
+          class="px-3 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">+ 上传知识</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  {% if upload_error %}
+  <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+    {{ upload_error }}
+  </div>
+  {% endif %}
+
+  <!-- Status summary -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <div class="rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-800">{{ stats.total }}</div>
+      <div class="text-xs text-gray-500">知识条目</div>
+    </div>
+    <a href="/knowledge?scope=company" class="stat-card rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-brand-600">{{ stats.company }}</div>
+      <div class="text-xs text-gray-500">公司级</div>
+    </a>
+    <a href="/knowledge?scope=department" class="stat-card rounded-lg border border-gray-200 bg-white p-3 text-center">
+      <div class="text-lg font-bold text-gray-600">{{ stats.department }}</div>
+      <div class="text-xs text-gray-500">部门级</div>
+    </a>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-5">
+
+    <!-- Left: category tree -->
+    <div class="space-y-2">
+      <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">分类</h3>
+      <a href="/knowledge" class="block px-3 py-1.5 rounded-md text-sm {% if not category_filter and not scope_filter and not status_filter %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+        全部知识
+      </a>
+      {% for cat in categories %}
+      <a href="/knowledge?category={{ cat }}" class="block px-3 py-1.5 rounded-md text-sm {% if category_filter == cat %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+        {{ cat }}
+      </a>
+      {% endfor %}
+      <hr class="border-gray-200 my-2">
+      <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">范围</h3>
+      {% for s in scopes %}
+      <a href="/knowledge?scope={{ s }}" class="block px-3 py-1.5 rounded-md text-sm {% if scope_filter == s %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">
+        {{ s|zh_knowledge_scope }}
+      </a>
+      {% endfor %}
+      <hr class="border-gray-200 my-2">
+      <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">状态</h3>
+      <a href="/knowledge?status=active" class="block px-3 py-1.5 rounded-md text-sm {% if status_filter == 'active' or not status_filter %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">已发布</a>
+      <a href="/knowledge?status=candidate" class="block px-3 py-1.5 rounded-md text-sm {% if status_filter == 'candidate' %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">候选</a>
+      <a href="/knowledge?status=archived" class="block px-3 py-1.5 rounded-md text-sm {% if status_filter == 'archived' %}bg-brand-50 text-brand-700 font-medium{% else %}text-gray-600 hover:bg-gray-100{% endif %}">已归档</a>
+    </div>
+
+    <!-- Right: knowledge list -->
+    <div class="lg:col-span-3">
+      {% if items %}
+      <div class="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left px-4 py-2.5 font-medium text-gray-600">标题</th>
+              <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-24">分类</th>
+              <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-24">范围</th>
+              <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-20">来源</th>
+              <th class="text-left px-4 py-2.5 font-medium text-gray-600 w-28">创建时间</th>
+              <th class="text-right px-4 py-2.5 font-medium text-gray-600 w-36">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for item in items %}
+            <tr class="hover:bg-gray-50 align-top">
+              <td class="px-4 py-2.5">
+                <div class="font-medium text-gray-800">{{ item.title }}</div>
+                <div class="text-xs text-gray-400 mt-0.5 truncate max-w-md">{{ item.content[:80] }}</div>
+              </td>
+              <td class="px-4 py-2.5 text-gray-500 text-xs">{{ item.category or '—' }}</td>
+              <td class="px-4 py-2.5">
+                {% if item.scope == 'company' %}
+                <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-blue-100 text-blue-700">公司级</span>
+                {% else %}
+                <span class="inline-flex px-1.5 py-0.5 text-xs rounded bg-gray-100 text-gray-600">部门级</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2.5 text-gray-500 text-xs">{{ item.source }}</td>
+              <td class="px-4 py-2.5 text-gray-500 text-xs">{{ item.created_at[:10] if item.created_at else '' }}</td>
+              <td class="px-4 py-2.5 text-right text-xs whitespace-nowrap">
+                <button type="button"
+                        onclick="var r=document.getElementById('knowledge-edit-{{ item.id }}'); if(r){ r.classList.toggle('hidden'); }"
+                        class="text-brand-600 hover:text-brand-700">编辑</button>
+                <button type="button" x-data class="ml-2 text-red-600 hover:text-red-700"
+                        @click="$dispatch('confirm-action', { title: '删除知识', message: '确定删除该条知识？此操作不可撤销。', action: '/knowledge/{{ item.id }}/delete', method: 'POST' })">
+                  删除
+                </button>
+              </td>
+            </tr>
+            <tr id="knowledge-edit-{{ item.id }}" class="hidden bg-gray-50/80">
+              <td colspan="6" class="px-4 py-4 border-t border-gray-100">
+                <form method="post" action="/knowledge/{{ item.id }}/update" class="space-y-3 max-w-3xl">
+                  <div class="text-xs font-medium text-gray-500 mb-2">编辑条目</div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-0.5">标题 <span class="text-red-500">*</span></label>
+                    <input type="text" name="title" required value="{{ item.title }}"
+                           class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none bg-white">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-0.5">内容 <span class="text-red-500">*</span></label>
+                    <textarea name="content" rows="5" required
+                              class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-y bg-white">{{ item.content }}</textarea>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-0.5">分类</label>
+                      <input type="text" name="category" value="{{ item.category or '' }}"
+                             class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-0.5">范围</label>
+                      <select name="scope" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+                        <option value="company" {% if item.scope == 'company' %}selected{% endif %}>公司级</option>
+                        <option value="department" {% if item.scope == 'department' %}selected{% endif %}>部门级</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-xs font-medium text-gray-600 mb-0.5">部门</label>
+                      <input type="text" name="department" value="{{ item.department or '' }}"
+                             class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none bg-white">
+                    </div>
+                  </div>
+                  <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="document.getElementById('knowledge-edit-{{ item.id }}').classList.add('hidden')"
+                            class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50 bg-white">取消</button>
+                    <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">保存</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="rounded-lg border border-gray-200 bg-white p-12 text-center">
+        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
+        <h3 class="text-sm font-semibold text-gray-600 mb-1">暂无知识条目</h3>
+        <p class="text-xs text-gray-400 mb-4">上传业务知识、SOP 或案例供 AI 参考学习</p>
+        <button onclick="document.getElementById('create-knowledge-modal').classList.remove('hidden')"
+                class="px-4 py-2 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">上传第一条知识</button>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Upload file as knowledge -->
+<div id="upload-file-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-lg mx-4 p-5 max-h-[90vh] overflow-y-auto">
+    <h3 class="text-base font-semibold text-gray-800 mb-4">上传文件</h3>
+    <p class="text-xs text-gray-500 mb-4">支持表格、PDF、图片、文档等；单文件最大 20MB。Excel/CSV 将自动提取前几行作为摘要。</p>
+    <form method="post" action="/knowledge/upload" enctype="multipart/form-data" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">文件 <span class="text-red-500">*</span></label>
+        <input type="file" name="file" required
+               class="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">标题 <span class="text-red-500">*</span></label>
+        <input type="text" name="title" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">分类</label>
+          <input type="text" name="category" placeholder="如: 销售报表" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">范围</label>
+          <select name="scope" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+            <option value="company">公司级</option>
+            <option value="department">部门级</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">部门（部门级时填写）</label>
+        <input type="text" name="department" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('upload-file-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">上传</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Create knowledge modal -->
+<div id="create-knowledge-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+  <div class="bg-white rounded-lg border border-gray-200 shadow-sm w-full max-w-lg mx-4 p-5">
+    <h3 class="text-base font-semibold text-gray-800 mb-4">上传知识</h3>
+    <form method="post" action="/knowledge" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">标题 <span class="text-red-500">*</span></label>
+        <input type="text" name="title" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">内容 <span class="text-red-500">*</span></label>
+        <textarea name="content" rows="6" required class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">分类</label>
+          <input type="text" name="category" placeholder="如: 销售SOP" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-600 mb-1">范围</label>
+          <select name="scope" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+            <option value="company">公司级</option>
+            <option value="department">部门级</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">部门（部门级时必填）</label>
+        <input type="text" name="department" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('create-knowledge-modal').classList.add('hidden')"
+                class="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">取消</button>
+        <button type="submit" class="px-4 py-1.5 text-sm bg-brand-600 text-white rounded-md hover:bg-brand-700">上传</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

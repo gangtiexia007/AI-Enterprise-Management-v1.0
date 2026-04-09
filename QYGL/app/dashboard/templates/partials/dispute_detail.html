@@ -1,0 +1,109 @@
+<!-- HTMX partial: dispute detail loaded into right panel -->
+<div class="space-y-4">
+  <div class="flex items-start justify-between">
+    <div>
+      <h3 class="text-base font-semibold text-gray-800">{{ dispute.type|zh_dispute_type }} 申诉</h3>
+      <p class="text-xs text-gray-400 mt-0.5">{{ employee.name if employee else '未知' }} · {{ dispute.created_at[:16] if dispute.created_at else '' }}</p>
+    </div>
+    {% if dispute.status == 'filed' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-700">{{ dispute.status|zh_dispute_status }}</span>
+    {% elif dispute.status == 'resolved' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-green-100 text-green-700">{{ dispute.status|zh_dispute_status }}</span>
+    {% elif dispute.status == 'overturned' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ dispute.status|zh_dispute_status }}</span>
+    {% else %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-500">{{ dispute.status|zh_dispute_status }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Dispute info -->
+  <div class="border border-gray-100 rounded-lg p-4 space-y-3">
+    {% if dispute.employee_reason %}
+    <div>
+      <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">员工申诉理由</h4>
+      <p class="text-sm text-gray-700">{{ dispute.employee_reason }}</p>
+    </div>
+    {% endif %}
+    {% if dispute.ai_reasoning %}
+    <div>
+      <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">AI 原始推理</h4>
+      <p class="text-sm text-gray-600">{{ dispute.ai_reasoning }}</p>
+    </div>
+    {% endif %}
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div>
+        <span class="text-xs text-gray-500">申诉类型</span>
+        <div class="font-medium text-gray-800">{{ dispute.type|zh_dispute_type }}</div>
+      </div>
+      <div>
+        <span class="text-xs text-gray-500">目标对象</span>
+        <div class="font-medium text-gray-800">{{ (dispute.target_type or '')|zh_resource_type or '—' }} {{ dispute.target_id or '' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Evidence chain -->
+  {% if evidence %}
+  <div class="border border-gray-100 rounded-lg p-4">
+    <h4 class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">证据链</h4>
+    <div class="space-y-2">
+      {% for e in evidence %}
+      <div class="flex items-start gap-2 p-2 rounded bg-gray-50">
+        <span class="h-5 w-5 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center text-xs flex-shrink-0">{{ loop.index }}</span>
+        <div class="text-sm text-gray-700">
+          {% if e.type is defined %}<span class="text-xs text-gray-400">[{{ e.type }}]</span> {% endif %}
+          {{ e.content if e.content is defined else e }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Resolution -->
+  {% if dispute.resolution %}
+  <div class="border border-green-200 bg-green-50 rounded-lg p-3">
+    <h4 class="text-xs font-medium text-green-700 mb-1">裁决结果</h4>
+    <p class="text-sm text-green-800">{{ dispute.resolution }}</p>
+    {% if dispute.resolver_id %}
+    <p class="text-xs text-green-600 mt-1">裁决人: {{ dispute.resolver_id }} · {{ dispute.resolved_at[:16] if dispute.resolved_at else '' }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if dispute.rule_correction_suggestion %}
+  <div class="border border-purple-200 bg-purple-50 rounded-lg p-3">
+    <h4 class="text-xs font-medium text-purple-700 mb-1">规则修正建议</h4>
+    <p class="text-sm text-purple-800">{{ dispute.rule_correction_suggestion }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  {% if dispute.status == 'filed' or dispute.status == 'evidence_collected' or dispute.status == 'ruling' %}
+  <div class="border-t border-gray-100 pt-4 space-y-3" x-data="{ resolution: '', correction: '' }">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">裁决说明</label>
+      <textarea x-model="resolution" rows="2" placeholder="请输入裁决结果"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"></textarea>
+    </div>
+    <div class="flex gap-2">
+      <form method="post" action="/disputes/{{ dispute.id }}/resolve" class="flex-1">
+        <input type="hidden" name="resolution" :value="resolution">
+        <button type="submit" :disabled="!resolution.trim()"
+                class="w-full px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">维持原判</button>
+      </form>
+      <form method="post" action="/disputes/{{ dispute.id }}/overturn" class="flex-1">
+        <input type="hidden" name="resolution" :value="resolution">
+        <input type="hidden" name="rule_correction" :value="correction">
+        <button type="submit" :disabled="!resolution.trim()"
+                class="w-full px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50">推翻</button>
+      </form>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">规则修正建议（推翻时可选）</label>
+      <textarea x-model="correction" rows="2" placeholder="如何调整规则以避免类似问题"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none resize-none"></textarea>
+    </div>
+  </div>
+  {% endif %}
+</div>

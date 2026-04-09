@@ -1,0 +1,70 @@
+<!-- HTMX partial: task detail loaded inline -->
+<div class="space-y-4">
+  <div class="flex items-start justify-between">
+    <div>
+      <h3 class="text-base font-semibold text-gray-800">{{ task.title }}</h3>
+      <p class="text-xs text-gray-400 mt-0.5">{{ task.created_at[:16] if task.created_at else '' }}</p>
+    </div>
+    {% if task.status == 'completed' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-green-100 text-green-700">{{ task.status|zh_task_status }}</span>
+    {% elif task.status == 'overdue' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ task.status|zh_task_status }}</span>
+    {% elif task.status == 'in_progress' %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">{{ task.status|zh_task_status }}</span>
+    {% else %}
+    <span class="inline-flex px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-700">{{ task.status|zh_task_status }}</span>
+    {% endif %}
+  </div>
+
+  {% if task.description %}
+  <p class="text-sm text-gray-700">{{ task.description }}</p>
+  {% endif %}
+
+  <div class="grid grid-cols-2 gap-3 text-sm">
+    <div>
+      <span class="text-xs text-gray-500">团队</span>
+      <div class="font-medium text-gray-800">{% if team %}{{ team.name }}{% else %}—{% endif %}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">负责人</span>
+      <div class="font-medium text-gray-800">{% if employee %}{{ employee.name }}{% else %}—{% endif %}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">截止时间</span>
+      <div class="text-gray-800">{{ task.deadline_at[:16] if task.deadline_at else '—' }}</div>
+    </div>
+    <div>
+      <span class="text-xs text-gray-500">评分</span>
+      <div class="font-medium text-gray-800">{{ task.score or '—' }}</div>
+    </div>
+  </div>
+
+  {% if task.feedback %}
+  <div class="border border-gray-100 rounded-lg p-3">
+    <h4 class="text-xs font-medium text-gray-500 mb-1">AI 反馈</h4>
+    <p class="text-sm text-gray-700">{{ task.feedback }}</p>
+  </div>
+  {% endif %}
+
+  {% if feedback_list %}
+  <div class="border-t border-gray-100 pt-3">
+    <h4 class="text-xs font-medium text-gray-500 mb-2">反馈记录 ({{ feedback_list|length }})</h4>
+    <div class="space-y-2">
+      {% for fb in feedback_list[:5] %}
+      <div class="p-2 rounded bg-gray-50 text-sm text-gray-700">
+        <span class="text-xs text-gray-400">{{ fb.submitted_at[:16] if fb.submitted_at else '' }}</span>
+        <span class="text-xs text-gray-500 ml-2">{{ fb.feedback_type|zh_feedback_type }}</span>
+        <p class="mt-0.5">{{ fb.content }}</p>
+        {% if fb.file_path %}
+        <a href="/uploads/{{ fb.file_path|basename }}" class="text-blue-600 hover:underline text-xs" target="_blank" rel="noopener noreferrer">
+          📎 {{ fb.file_path.split('/')[-1] }}
+        </a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="/tasks/{{ task.id }}" class="block text-center text-xs text-brand-600 hover:underline pt-2">查看完整详情 →</a>
+</div>

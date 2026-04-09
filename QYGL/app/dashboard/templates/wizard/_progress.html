@@ -1,0 +1,23 @@
+{# Reusable wizard progress — requires current_step (1–7) in context #}
+<div class="mb-8 overflow-x-auto pb-1">
+  <div class="min-w-[520px]">
+    <div class="flex items-center justify-between mb-2">
+      {% for s in range(1, 8) %}
+      <div class="flex items-center">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+          {% if s < current_step %}bg-green-500 text-white
+          {% elif s == current_step %}bg-blue-600 text-white
+          {% else %}bg-gray-200 text-gray-500{% endif %}">
+          {% if s < current_step %}✓{% else %}{{ s }}{% endif %}
+        </div>
+        {% if s < 7 %}
+        <div class="w-12 h-1 mx-1 {% if s < current_step %}bg-green-500{% else %}bg-gray-200{% endif %}"></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="flex justify-between text-xs text-gray-500">
+      <span>欢迎</span><span>模型</span><span>场景</span><span>团队</span><span>成员</span><span>机器人</span><span>完成</span>
+    </div>
+  </div>
+</div>

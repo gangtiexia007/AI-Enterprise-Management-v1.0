@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>添加员工 — 设置向导</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { brand: { 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8' } } } } }</script>
+</head>
+<body class="h-full bg-gray-50 flex items-center justify-center">
+  <div class="w-full max-w-lg mx-4">
+    <div class="bg-white border border-gray-200 rounded-lg p-6" x-data="{ employees: [{ name: '', role: 'employee' }] }">
+      {% include "wizard/_progress.html" %}
+
+      <h2 class="text-lg font-semibold text-gray-800 mb-1">添加团队成员</h2>
+      <p class="text-xs text-gray-400 mb-1">步骤 5 / 7</p>
+      <p class="text-sm text-gray-500 mb-5">添加团队成员，后续可在团队详情中管理</p>
+
+      <form method="post" action="/wizard/step5" class="space-y-3">
+        <template x-for="(emp, index) in employees" :key="index">
+          <div class="flex gap-2 items-start">
+            <div class="flex-1">
+              <input type="text" :name="'emp_name'" x-model="emp.name" placeholder="姓名"
+                     class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+            </div>
+            <div class="w-28">
+              <select :name="'emp_role'" x-model="emp.role"
+                      class="w-full rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none">
+                <option value="boss">老板</option>
+                <option value="manager">经理</option>
+                <option value="employee">员工</option>
+              </select>
+            </div>
+            <button type="button" @click="employees.splice(index, 1)" x-show="employees.length > 1"
+                    class="p-2 text-gray-400 hover:text-red-500">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </template>
+
+        <button type="button" @click="employees.push({ name: '', role: 'employee' })"
+                class="text-sm text-brand-600 hover:text-brand-700 font-medium">+ 添加更多员工</button>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 mt-6">
+          <a href="/wizard/step4" class="px-4 py-2 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-50">上一步</a>
+          <div class="flex items-center gap-4">
+            <a href="/wizard/step{{ current_step + 1 }}" class="text-gray-400 hover:text-gray-600 text-sm">跳过此步 →</a>
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">下一步</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,45 @@
+<!-- HTMX partial: escalation timeline loaded into right panel -->
+<div class="space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="text-base font-semibold text-gray-800">{{ task.title }}</h3>
+    <a href="/tasks/{{ task.id }}" class="text-xs text-brand-600 hover:underline">查看任务</a>
+  </div>
+
+  {% if timeline %}
+  <div class="relative pl-6 space-y-5">
+    <div class="absolute left-2.5 top-1 bottom-1 w-px bg-gray-200"></div>
+    {% for event in timeline %}
+    <div class="relative">
+      <div class="absolute -left-6 top-0.5 h-5 w-5 rounded-full border-2 bg-white flex items-center justify-center
+        {% if event.level == 'boss' %}border-red-400{% elif event.level == 'manager' %}border-yellow-400{% else %}border-gray-300{% endif %}">
+        <div class="h-2 w-2 rounded-full
+          {% if event.level == 'boss' %}bg-red-400{% elif event.level == 'manager' %}bg-yellow-400{% else %}bg-gray-300{% endif %}"></div>
+      </div>
+      <div class="border border-gray-100 rounded-lg p-3">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            {% if event.level == 'boss' %}
+            <span class="inline-flex px-2 py-0.5 text-xs rounded bg-red-100 text-red-700">{{ event.level|zh_escalation_level }}</span>
+            {% elif event.level == 'manager' %}
+            <span class="inline-flex px-2 py-0.5 text-xs rounded bg-yellow-100 text-yellow-700">{{ event.level|zh_escalation_level }}</span>
+            {% else %}
+            <span class="inline-flex px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-500">{{ event.level|zh_escalation_level }}</span>
+            {% endif %}
+            <span class="text-xs text-gray-400">→ {{ event.target_id }}</span>
+          </div>
+          <span class="text-xs text-gray-400">{{ event.sent_at[:16] if event.sent_at else '' }}</span>
+        </div>
+        <p class="text-sm text-gray-700">{{ event.message or '无附加消息' }}</p>
+        {% if event.response_at %}
+        <div class="mt-1 text-xs text-green-600">已响应: {{ event.response_at[:16] }}</div>
+        {% else %}
+        <div class="mt-1 text-xs text-red-500">等待响应</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-400 text-center py-6">暂无升级记录</p>
+  {% endif %}
+</div>

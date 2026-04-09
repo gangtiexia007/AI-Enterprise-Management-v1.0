@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+}
+
+[x-cloak] { display: none !important; }
+
+.nav-group-title {
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.sidebar-link {
+  transition: all 0.15s ease;
+}
+.sidebar-link:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+.sidebar-link.active {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border-right: 2px solid #2563eb;
+}
+
+.stat-card {
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.stat-card:hover {
+  border-color: #3b82f6;
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+}
