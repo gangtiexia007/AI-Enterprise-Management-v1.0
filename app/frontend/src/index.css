@@ -1,25 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', 'Roboto', sans-serif;
-  font-feature-settings: "cv01", "ss03";
-  background: #08090a;
-  color: #f7f8f8;
+  font-family: 'Inter', 'SF Pro Display', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'PingFang SC', sans-serif;
+  background: #f7f7f5;
+  color: #37352f;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @layer base {
   ::selection {
-    background: rgba(94, 106, 210, 0.3);
+    background: rgba(94, 106, 210, 0.15);
   }
 }
 
@@ -31,10 +30,10 @@ body {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.08);
+    background: #d3d1cb;
     border-radius: 2px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.14);
+    background: #acaba9;
   }
 }
