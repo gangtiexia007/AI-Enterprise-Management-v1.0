@@ -10,6 +10,7 @@ import Employees from './pages/Employees';
 import Approvals from './pages/Approvals';
 import AuditLogs from './pages/AuditLogs';
 import Agent from './pages/Agent';
+import DataCenter from './pages/DataCenter';
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/goals" element={<Goals />} />
         <Route path="/kpi" element={<KPI />} />
+        <Route path="/data-center" element={<DataCenter />} />
         <Route path="/knowledge" element={<Knowledge />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/employees" element={<Employees />} />

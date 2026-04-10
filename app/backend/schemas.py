@@ -434,4 +434,44 @@ class TeamOut(TeamBase):
         from_attributes = True
 
 
+# ---------- Bitable ----------
+
+class BitableConfigOut(BaseModel):
+    base_token: str = ""
+    table_map: dict[str, str] = {}
+    category_map: dict[str, str] = {}
+
+
+class BitableConfigUpdate(BaseModel):
+    base_token: Optional[str] = None
+    table_map: Optional[dict[str, str]] = None
+    category_map: Optional[dict[str, str]] = None
+
+
+class BitableRecordOut(BaseModel):
+    record_id: str
+    fields: dict = {}
+
+
+class BitableTableOverview(BaseModel):
+    alias: str
+    category: str  # A | B | C
+    table_id: str = ""
+    record_count: int = 0
+    last_sync_at: Optional[str] = None
+
+
+class BitableSyncResult(BaseModel):
+    ok: bool
+    alias: str = ""
+    detail: str = ""
+    invalidated_tables: list[str] = []
+
+
+class BitableTableMetaOut(BaseModel):
+    table_id: Optional[str] = None
+    name: Optional[str] = None
+    revision: Optional[int] = None
+
+
 GoalOut.model_rebuild()

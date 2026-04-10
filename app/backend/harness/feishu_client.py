@@ -75,7 +75,17 @@ class FeishuClient:
             "Content-Type": "application/json",
         }
 
-    def send_text_message(self, user_id: str, text: str, id_type: str = "open_id") -> bool:
+    @staticmethod
+    def _detect_id_type(user_id: str) -> str:
+        """Auto-detect id_type from prefix: on_ → union_id, ou_ → open_id, default open_id."""
+        if user_id.startswith("on_"):
+            return "union_id"
+        if user_id.startswith("ou_"):
+            return "open_id"
+        return "open_id"
+
+    def send_text_message(self, user_id: str, text: str, id_type: str = "") -> bool:
+        id_type = id_type or self._detect_id_type(user_id)
         if not self.is_enabled():
             logger.info(f"[Feishu STUB] text→{user_id}: {text[:80]}")
             _log_audit("feishu_stub_text", f"to={user_id}, text={text[:100]}")
@@ -105,7 +115,8 @@ class FeishuClient:
             logger.error(f"Feishu send_text error: {e}")
             return False
 
-    def send_card_message(self, user_id: str, card: dict, id_type: str = "open_id") -> bool:
+    def send_card_message(self, user_id: str, card: dict, id_type: str = "") -> bool:
+        id_type = id_type or self._detect_id_type(user_id)
         if not self.is_enabled():
             logger.info(f"[Feishu STUB] card→{user_id}")
             _log_audit("feishu_stub_card", f"to={user_id}")
@@ -212,6 +223,64 @@ class FeishuClient:
     def send_status_notification(self, user_id: str, title: str, detail: str) -> bool:
         text = f"📌 {title}\n\n{detail}"
         return self.send_text_message(user_id, text)
+
+    def send_text_to_chat(self, chat_id: str, text: str) -> bool:
+        """Send a text message to a chat (by chat_id, supports both p2p and group)."""
+        if not self.is_enabled():
+            logger.info(f"[Feishu STUB] chat→{chat_id}: {text[:80]}")
+            _log_audit("feishu_stub_chat", f"chat_id={chat_id}, text={text[:100]}")
+            return False
+        if not chat_id:
+            logger.warning("send_text_to_chat: empty chat_id")
+            return False
+        try:
+            with httpx.Client(timeout=15) as client:
+                resp = client.post(
+                    f"{FEISHU_BASE}/im/v1/messages?receive_id_type=chat_id",
+                    headers=self._headers(),
+                    json={
+                        "receive_id": chat_id,
+                        "msg_type": "text",
+                        "content": json.dumps({"text": text}),
+                    },
+                )
+                data = resp.json()
+                ok = data.get("code") == 0
+                if ok:
+                    _log_audit("feishu_chat_reply", f"chat_id={chat_id}, text={text[:100]}")
+                else:
+                    logger.error(f"Feishu send_text_to_chat failed: {data}")
+                return ok
+        except Exception as e:
+            logger.error(f"Feishu send_text_to_chat error: {e}")
+            return False
+
+    def send_card_to_chat(self, chat_id: str, card: dict) -> bool:
+        """Send a card message to a chat_id."""
+        if not self.is_enabled():
+            logger.info(f"[Feishu STUB] card-chat→{chat_id}")
+            return False
+        if not chat_id:
+            return False
+        try:
+            with httpx.Client(timeout=15) as client:
+                resp = client.post(
+                    f"{FEISHU_BASE}/im/v1/messages?receive_id_type=chat_id",
+                    headers=self._headers(),
+                    json={
+                        "receive_id": chat_id,
+                        "msg_type": "interactive",
+                        "content": json.dumps(card),
+                    },
+                )
+                data = resp.json()
+                ok = data.get("code") == 0
+                if not ok:
+                    logger.error(f"Feishu send_card_to_chat failed: {data}")
+                return ok
+        except Exception as e:
+            logger.error(f"Feishu send_card_to_chat error: {e}")
+            return False
 
 
 feishu_client = FeishuClient()

@@ -4,12 +4,42 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
 from routers import tasks, goals, kpi, knowledge, settings, agent, employees, reports, approvals, audit_logs, coaching
-from routers import agent_admin, scheduled_tasks, teams
+from routers import agent_admin, scheduled_tasks, teams, bitable, feishu_webhook
+
+
+def _safe_migrate(engine):
+    """Add any missing columns to existing tables without touching data."""
+    import sqlalchemy as sa
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.connect() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name not in existing:
+                    col_type = col.type.compile(engine.dialect)
+                    default = ""
+                    if col.default is not None and col.default.is_scalar:
+                        v = col.default.arg
+                        default = f" DEFAULT '{v}'" if isinstance(v, str) else f" DEFAULT {v}"
+                    elif not col.nullable:
+                        default = " DEFAULT ''"
+                    try:
+                        conn.execute(text(
+                            f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}{default}"
+                        ))
+                        conn.commit()
+                    except Exception as e:
+                        pass  # Column may already exist in a race condition
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _safe_migrate(engine)
 
     from harness.skill_registry import skill_registry
     skill_registry.auto_discover_builtins()
@@ -43,6 +73,8 @@ app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-log
 app.include_router(coaching.router, prefix="/api/coaching", tags=["coaching"])
 app.include_router(scheduled_tasks.router, prefix="/api/scheduled-tasks", tags=["scheduled-tasks"])
 app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
+app.include_router(bitable.router, prefix="/api/bitable", tags=["bitable"])
+app.include_router(feishu_webhook.router, prefix="/api/feishu", tags=["feishu-webhook"])
 
 
 @app.get("/api/health")

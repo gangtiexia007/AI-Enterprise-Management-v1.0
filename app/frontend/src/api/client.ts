@@ -353,3 +353,65 @@ export interface TeamItem {
 export const getTeams = () => api.get<TeamItem[]>('/teams');
 export const createTeam = (data: Partial<TeamItem>) => api.post<TeamItem>('/teams', data);
 export const deleteTeam = (id: number) => api.del(`/teams/${id}`);
+
+/* ---------- Bitable ---------- */
+
+export interface BitableConfig {
+  base_token: string;
+  table_map: Record<string, string>;
+  category_map: Record<string, string>;
+}
+
+export interface BitableTableMeta {
+  table_id?: string;
+  name?: string;
+  revision?: number;
+}
+
+export interface BitableTableOverview {
+  alias: string;
+  category: string;
+  table_id: string;
+  record_count: number;
+  last_sync_at?: string | null;
+}
+
+export interface BitableSyncResult {
+  ok: boolean;
+  alias: string;
+  detail: string;
+  invalidated_tables: string[];
+}
+
+export interface BitableRecordRow {
+  record_id?: string;
+  fields?: Record<string, unknown>;
+}
+
+export const getBitableConfig = () => api.get<BitableConfig>('/bitable/config');
+export const updateBitableConfig = (data: { base_token?: string; table_map?: Record<string, string>; category_map?: Record<string, string> }) =>
+  api.put<BitableConfig>('/bitable/config', data);
+export const testBitableConnection = () =>
+  api.post<{ ok: boolean; table_count: number; sample: BitableTableMeta[] }>('/bitable/test-connection');
+export const getBitableTables = () => api.get<BitableTableMeta[]>('/bitable/tables');
+export const getBitableOverview = () => api.get<BitableTableOverview[]>('/bitable/overview');
+export const syncBitableAll = () => api.post<BitableSyncResult[]>('/bitable/sync');
+export const syncBitableAlias = (alias: string) =>
+  api.post<BitableSyncResult>(`/bitable/sync/${encodeURIComponent(alias)}`);
+export const getBitableTableStats = (alias: string) =>
+  api.get<{ alias: string; table_id: string; total?: number; last_sync_at?: string | null }>(
+    `/bitable/tables/${encodeURIComponent(alias)}/stats`,
+  );
+export const getBitableRecords = (
+  alias: string,
+  params?: { page_token?: string; page_size?: number; q?: string },
+) => {
+  const sp = new URLSearchParams();
+  if (params?.page_token) sp.set('page_token', params.page_token);
+  if (params?.page_size != null) sp.set('page_size', String(params.page_size));
+  if (params?.q) sp.set('q', params.q);
+  const qs = sp.toString();
+  return api.get<{ items: BitableRecordRow[]; page_token?: string; total?: number }>(
+    `/bitable/tables/${encodeURIComponent(alias)}/records${qs ? `?${qs}` : ''}`,
+  );
+};
