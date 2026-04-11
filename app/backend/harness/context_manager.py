@@ -2,7 +2,6 @@
 from typing import List, Dict
 
 MAX_CONTEXT_MESSAGES = 20
-MAX_CONTEXT_TOKENS_ESTIMATE = 4000
 
 class ContextManager:
     def __init__(self, max_messages: int = MAX_CONTEXT_MESSAGES):

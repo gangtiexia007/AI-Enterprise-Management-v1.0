@@ -17,8 +17,8 @@ class PermissionGateway:
     def __init__(self):
         self._overrides: dict[str, bool] = {}
 
-    def check(self, skill_name: str, db_session=None) -> bool:
-        """Check if a skill is allowed to execute under current context."""
+    def check(self, skill_name: str, db_session=None) -> bool | str:
+        """Check if a skill is allowed to execute. Returns True, False, or 'pending_approval'."""
         if skill_name in self._overrides:
             return self._overrides[skill_name]
 
@@ -27,15 +27,12 @@ class PermissionGateway:
         if not skill:
             return False
 
-        if skill.permission_level <= 1:
-            return True
-
-        if skill.permission_level == 2:
+        if skill.permission_level <= 2:
             return True
 
         if skill.permission_level == 3:
-            logger.warning(f"Skill '{skill_name}' requires strong approval (P3) — auto-allowing for now")
-            return True
+            logger.warning(f"Skill '{skill_name}' requires strong approval (P3)")
+            return "pending_approval"
 
         if skill.permission_level >= 4:
             logger.warning(f"Skill '{skill_name}' is forbidden (P4)")

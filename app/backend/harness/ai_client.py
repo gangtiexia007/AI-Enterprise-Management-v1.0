@@ -17,6 +17,8 @@ def _get_setting(key: str, default: str = "") -> str:
         db.close()
 
 class AIClient:
+    _last_usage_tokens: int = 0
+
     def _get_config(self):
         return {
             "base_url": _get_setting("ai_base_url", "https://api.openai.com/v1"),
@@ -96,6 +98,7 @@ class AIClient:
             total = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
             self._record_usage(model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
             self._post_usage_tracking(total)
+            self._last_usage_tokens = total
             return content
 
     async def chat_with_tools(self, messages: list, tools: Optional[list] = None, model: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 2000) -> dict:
@@ -135,6 +138,7 @@ class AIClient:
                 total_toks = usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0)
                 self._record_usage(target_model, usage.get("prompt_tokens", 0), usage.get("completion_tokens", 0))
                 self._post_usage_tracking(total_toks)
+                self._last_usage_tokens = total_toks
 
                 if msg.get("tool_calls"):
                     return {"type": "tool_calls", "tool_calls": msg["tool_calls"]}

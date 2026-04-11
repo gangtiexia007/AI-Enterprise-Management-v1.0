@@ -1,13 +1,16 @@
 """
-Bitable (飞书多维表格) config, sync, and data preview APIs.
+Bitable (飞书多维表格) config, sync, data preview, daily-row generation, CSV import.
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
-from datetime import datetime, timezone
+import time
+from datetime import datetime, date, timezone, timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -302,3 +305,238 @@ def table_records(
         }
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+# ──── Daily row generation (每日运营数据) ────
+
+def _extract_text(v: Any) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return " ".join(
+            (x.get("text") or x.get("name") or "") if isinstance(x, dict) else str(x)
+            for x in v
+        )
+    return str(v)
+
+
+@router.get("/daily-ops/stores")
+def list_known_stores(db: Session = Depends(get_db)):
+    """Return distinct store+platform pairs from existing 每日运营数据 records."""
+    from harness.bitable_client import bitable_client
+
+    token, table_map, _c = _load_config(db)
+    tid = (table_map.get("每日运营数据") or "").strip()
+    if not token or not tid:
+        raise HTTPException(status_code=400, detail="每日运营数据表未配置")
+
+    items = bitable_client.list_all_record_ids(token, tid, max_pages=20)
+    seen: dict[str, str] = {}
+    for rec in items:
+        fields = rec.get("fields") or {}
+        store = _extract_text(fields.get("店铺名称")).strip()
+        platform = _extract_text(fields.get("平台")).strip()
+        if store and store not in seen:
+            seen[store] = platform
+    stores = [{"store": s, "platform": p} for s, p in sorted(seen.items())]
+    return {"stores": stores, "count": len(stores)}
+
+
+@router.post("/daily-ops/generate")
+def generate_daily_rows(
+    target_date: Optional[str] = Query(None, description="yyyy-MM-dd, default today"),
+    db: Session = Depends(get_db),
+):
+    """Create blank rows in 每日运营数据 for all known stores for the given date."""
+    from harness.bitable_client import bitable_client
+
+    token, table_map, _c = _load_config(db)
+    tid = (table_map.get("每日运营数据") or "").strip()
+    if not token or not tid:
+        raise HTTPException(status_code=400, detail="每日运营数据表未配置")
+
+    if target_date:
+        try:
+            d = datetime.strptime(target_date.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="日期格式错误，需 yyyy-MM-dd")
+    else:
+        d = date.today()
+
+    date_ms = int(datetime.combine(d, datetime.min.time()).timestamp()) * 1000
+
+    items = bitable_client.list_all_record_ids(token, tid, max_pages=20)
+    stores: dict[str, str] = {}
+    existing_today: set[str] = set()
+    for rec in items:
+        fields = rec.get("fields") or {}
+        store = _extract_text(fields.get("店铺名称")).strip()
+        platform = _extract_text(fields.get("平台")).strip()
+        if store:
+            stores[store] = platform
+        rec_date = fields.get("日期")
+        if rec_date is not None:
+            ts = rec_date / 1000 if isinstance(rec_date, (int, float)) and rec_date > 1e12 else (rec_date if isinstance(rec_date, (int, float)) else 0)
+            if ts:
+                rec_d = datetime.fromtimestamp(ts).date()
+                if rec_d == d and store:
+                    existing_today.add(store)
+
+    if not stores:
+        return {"created": 0, "message": "没有找到已有店铺记录，请先手动录入至少一天的数据以建立店铺清单"}
+
+    to_create = []
+    for store, platform in sorted(stores.items()):
+        if store in existing_today:
+            continue
+        row: dict[str, Any] = {
+            "店铺名称": store,
+            "日期": date_ms,
+        }
+        if platform:
+            row["平台"] = platform
+        to_create.append({"fields": row})
+
+    if not to_create:
+        return {"created": 0, "message": f"{d.isoformat()} 的行已存在，无需重复生成", "date": d.isoformat()}
+
+    batch_size = 100
+    created = 0
+    for i in range(0, len(to_create), batch_size):
+        batch = to_create[i:i + batch_size]
+        try:
+            bitable_client.batch_create_records(token, tid, batch)
+            created += len(batch)
+        except Exception as e:
+            return {"created": created, "error": str(e), "date": d.isoformat()}
+        if i + batch_size < len(to_create):
+            time.sleep(0.5)
+
+    bitable_client.invalidate(tid)
+    return {
+        "created": created,
+        "date": d.isoformat(),
+        "stores": [r["fields"]["店铺名称"] for r in to_create],
+        "message": f"已为 {created} 个店铺生成 {d.isoformat()} 的空行，去飞书填数字即可",
+    }
+
+
+# ──── CSV Import ────
+
+_FIELD_ALIASES = {
+    "店铺": "店铺名称", "店铺名": "店铺名称", "store": "店铺名称",
+    "date": "日期", "日期": "日期",
+    "platform": "平台", "平台": "平台",
+    "orders": "出单量", "出单量": "出单量", "出单": "出单量", "订单数": "出单量",
+    "impressions": "曝光量", "曝光量": "曝光量", "曝光": "曝光量",
+    "clicks": "点击量", "点击量": "点击量", "点击": "点击量",
+    "aov": "客单价(元)", "客单价": "客单价(元)", "客单价(元)": "客单价(元)",
+    "新上架": "新上架数", "新上架数": "新上架数", "上架数": "新上架数",
+    "备注": "备注", "note": "备注",
+}
+
+_NUMERIC_FIELDS = {"出单量", "曝光量", "点击量", "客单价(元)", "新上架数"}
+
+
+@router.post("/daily-ops/import-csv")
+async def import_csv(
+    file: UploadFile = File(...),
+    target_date: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Import CSV/TSV into 每日运营数据. Column headers are fuzzy-matched."""
+    from harness.bitable_client import bitable_client
+
+    token, table_map, _c = _load_config(db)
+    tid = (table_map.get("每日运营数据") or "").strip()
+    if not token or not tid:
+        raise HTTPException(status_code=400, detail="每日运营数据表未配置")
+
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = raw.decode("gbk", errors="replace")
+
+    delimiter = "\t" if "\t" in text.split("\n", 1)[0] else ","
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+
+    date_ms = None
+    if target_date:
+        try:
+            d = datetime.strptime(target_date.strip(), "%Y-%m-%d").date()
+            date_ms = int(datetime.combine(d, datetime.min.time()).timestamp()) * 1000
+        except ValueError:
+            pass
+
+    records_to_create: list[dict] = []
+    skipped = 0
+
+    for row in reader:
+        fields: dict[str, Any] = {}
+        for csv_col, value in row.items():
+            if csv_col is None or value is None:
+                continue
+            col_clean = csv_col.strip().lower()
+            mapped = _FIELD_ALIASES.get(col_clean) or _FIELD_ALIASES.get(csv_col.strip())
+            if not mapped:
+                for alias, target in _FIELD_ALIASES.items():
+                    if alias in col_clean:
+                        mapped = target
+                        break
+            if not mapped:
+                continue
+
+            val = value.strip()
+            if not val:
+                continue
+
+            if mapped in _NUMERIC_FIELDS:
+                val_clean = val.replace(",", "").replace("¥", "").replace("$", "").replace("₱", "").strip()
+                try:
+                    fields[mapped] = float(val_clean) if "." in val_clean else int(val_clean)
+                except ValueError:
+                    continue
+            elif mapped == "日期":
+                for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%d/%m/%Y"):
+                    try:
+                        dt = datetime.strptime(val[:10], fmt)
+                        fields["日期"] = int(dt.timestamp()) * 1000
+                        break
+                    except ValueError:
+                        continue
+            else:
+                fields[mapped] = val
+
+        if date_ms and "日期" not in fields:
+            fields["日期"] = date_ms
+
+        if "店铺名称" not in fields:
+            skipped += 1
+            continue
+
+        records_to_create.append({"fields": fields})
+
+    if not records_to_create:
+        return {"imported": 0, "skipped": skipped, "message": "没有可导入的行，请检查 CSV 是否包含「店铺名称」列"}
+
+    batch_size = 100
+    imported = 0
+    for i in range(0, len(records_to_create), batch_size):
+        batch = records_to_create[i:i + batch_size]
+        try:
+            bitable_client.batch_create_records(token, tid, batch)
+            imported += len(batch)
+        except Exception as e:
+            return {"imported": imported, "skipped": skipped, "error": str(e)}
+        if i + batch_size < len(records_to_create):
+            time.sleep(0.5)
+
+    bitable_client.invalidate(tid)
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "message": f"成功导入 {imported} 行到每日运营数据表",
+    }

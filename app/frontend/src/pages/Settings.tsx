@@ -22,6 +22,7 @@ const TABS: { id: TabId; label: string }[] = [
 const FIELD_DEFS: Record<string, { key: string; label: string; type?: string; placeholder?: string }[]> = {
   general: [
     { key: 'company_name', label: '公司名称', placeholder: '我的公司' },
+    { key: 'agent_mode', label: '运行模式 (command/light/full)', placeholder: 'full' },
     { key: 'escalation_intervals', label: '催办间隔 (小时)', placeholder: '24,48,72' },
     { key: 'report_time', label: '日报推送时间', placeholder: '09:00' },
     { key: 'kpi_alert_threshold', label: 'KPI 预警阈值', placeholder: '60' },

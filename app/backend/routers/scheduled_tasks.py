@@ -1,4 +1,5 @@
 """Scheduled tasks management router."""
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from database import get_db
 from models import ScheduledTask
 from schemas import ScheduledTaskCreate, ScheduledTaskUpdate, ScheduledTaskOut
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -63,6 +65,20 @@ def toggle_scheduled_task(task_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Not found")
     task.enabled = 0 if task.enabled else 1
     db.commit()
+
+    from harness.scheduler import get_scheduler, TASK_TYPE_TO_JOB_ID
+    sched = get_scheduler()
+    if sched:
+        job_id = TASK_TYPE_TO_JOB_ID.get(task.task_type)
+        if job_id:
+            try:
+                if task.enabled:
+                    sched.resume_job(job_id)
+                else:
+                    sched.pause_job(job_id)
+            except Exception as e:
+                logger.warning(f"Failed to pause/resume job {job_id}: {e}")
+
     return {"id": task.id, "name": task.name, "enabled": task.enabled}
 
 

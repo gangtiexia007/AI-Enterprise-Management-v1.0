@@ -1,7 +1,7 @@
 """
-AgentLoop: full state-machine with Tool Use (function calling) and SubAgent dispatch.
+AgentLoop: full state-machine with Tool Use (function calling).
 
-States: INIT -> PLANNING -> TOOL_USE -> OBSERVATION -> SUB_AGENT -> RESPONSE -> MEMORY_UPDATE -> DONE
+States: INIT -> PLANNING -> TOOL_USE -> OBSERVATION -> RESPONSE -> MEMORY_UPDATE -> DONE
 """
 import json
 import enum
@@ -19,7 +19,6 @@ class AgentState(str, enum.Enum):
     PLANNING = "planning"
     TOOL_USE = "tool_use"
     OBSERVATION = "observation"
-    SUB_AGENT = "sub_agent"
     RESPONSE = "response"
     MEMORY_UPDATE = "memory_update"
     DONE = "done"
@@ -44,6 +43,10 @@ class AgentLoop:
         self._iterations = 0
 
         try:
+            if agent_mode == "multi_agent":
+                from harness.multi_agent.orchestrator import orchestrator
+                return await orchestrator.run(user_message, db_session)
+
             from harness.ai_client import ai_client
             from harness.skill_registry import skill_registry
             from harness.prompt_templates import build_system_prompt, build_context_message
@@ -110,8 +113,22 @@ class AgentLoop:
 
                         await hook_manager.pre_tool_call(fn_name, fn_args)
 
-                        perm_ok = permission_gateway.check(fn_name, db_session)
-                        if not perm_ok:
+                        perm_result = permission_gateway.check(fn_name, db_session)
+                        if perm_result == "pending_approval":
+                            try:
+                                from models import Approval
+                                approval = Approval(
+                                    title=f"Agent 请求执行: {fn_name}",
+                                    description=f"Agent 尝试执行 P3 级技能 '{fn_name}'，参数: {json.dumps(fn_args, ensure_ascii=False)[:500]}",
+                                    status="pending",
+                                    created_at=datetime.utcnow(),
+                                )
+                                db_session.add(approval)
+                                db_session.commit()
+                            except Exception as e:
+                                logger.error(f"Failed to create approval for P3 skill: {e}")
+                            tool_result_str = f"技能 '{fn_name}' 需要审批确认，已提交审批流程，请在审批中心处理。"
+                        elif not perm_result:
                             tool_result_str = f"Permission denied for skill '{fn_name}'"
                         else:
                             result = await skill_registry.execute(fn_name, fn_args, db_session=db_session)

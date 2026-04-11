@@ -74,6 +74,9 @@ class Task(Base):
     status = Column(SAEnum(TaskStatus), default=TaskStatus.PENDING)
     goal_id = Column(Integer, ForeignKey("goals.id"), nullable=True)
     priority = Column(String(20), default="normal")
+    task_type = Column(String(100), default="")
+    parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    auto_next_config = Column(Text, default="")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -123,6 +126,21 @@ class Knowledge(Base):
     source = Column(String(200), default="manual")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # unified memory fields (merged from MemoryEntry + AgentMemoryEntry)
+    level = Column(Integer, default=3)              # 2=摘要, 3=知识(默认), 4=蒸馏
+    platform = Column(String(100), default="")
+    market = Column(String(100), default="")
+    niche = Column(String(200), default="")
+    persona = Column(String(200), default="")
+    confidence = Column(Float, default=1.0)
+    source_run_id = Column(String(100), default="")
+    memory_type = Column(String(50), default="")    # SOP/case/rule/taboo/risk_expression …
+    conditions = Column(Text, default="[]")         # JSON
+    action = Column(Text, default="")
+    result = Column(Text, default="")
+    why = Column(Text, default="")
+    reusable = Column(Integer, default=1)
+    metadata_json = Column(Text, default="{}")
 
 
 class Conversation(Base):
@@ -221,22 +239,6 @@ class Agent(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
-class SubAgentModel(Base):
-    __tablename__ = "sub_agents"
-    id = Column(Integer, primary_key=True, index=True)
-    parent_agent_id = Column(Integer, ForeignKey("agents.id"), nullable=True)
-    role = Column(String(100), nullable=False)
-    name = Column(String(200), nullable=False)
-    description = Column(Text, default="")
-    model = Column(String(200), default="")
-    allowed_tools = Column(Text, default="[]")
-    read_only = Column(Integer, default=1)
-    can_spawn_children = Column(Integer, default=0)
-    system_prompt = Column(Text, default="")
-    status = Column(String(50), default="active")
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-
 class Skill(Base):
     __tablename__ = "skills"
     id = Column(Integer, primary_key=True, index=True)
@@ -273,6 +275,7 @@ class ScheduledTask(Base):
 
 
 # ---------- Memory Entries (L4 distilled) ----------
+# DEPRECATED - use Knowledge table instead
 
 class MemoryEntry(Base):
     __tablename__ = "memory_entries"
@@ -310,4 +313,40 @@ class Team(Base):
     description = Column(Text, default="")
     leader_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
     feishu_chat_id = Column(String(200), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ---------- Multi-Agent System ----------
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(String(100), nullable=False)
+    task_type = Column(String(100), default="")
+    route_name = Column(String(100), default="")
+    agents_called = Column(Text, default="[]")
+    input_summary = Column(Text, default="")
+    final_output = Column(Text, default="")
+    total_tokens = Column(Integer, default=0)
+    duration_ms = Column(Integer, default=0)
+    data_sufficiency = Column(String(50), default="")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# DEPRECATED - use Knowledge table instead
+class AgentMemoryEntry(Base):
+    __tablename__ = "agent_memory_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    memory_type = Column(String(50), default="")
+    title = Column(String(300), default="")
+    platform = Column(String(100), default="")
+    market = Column(String(100), default="")
+    persona = Column(String(200), default="")
+    niche = Column(String(200), default="")
+    conditions = Column(Text, default="[]")
+    action = Column(Text, default="")
+    result = Column(Text, default="")
+    why = Column(Text, default="")
+    reusable = Column(Integer, default=1)
+    source_run_id = Column(String(100), default="")
     created_at = Column(DateTime, default=datetime.utcnow)

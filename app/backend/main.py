@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine, Base
-from routers import tasks, goals, kpi, knowledge, settings, agent, employees, reports, approvals, audit_logs, coaching
-from routers import agent_admin, scheduled_tasks, teams, bitable, feishu_webhook
+from routers import tasks, goals, kpi, knowledge, settings, agent, reports, approvals, audit_logs
+from routers import agent_admin, scheduled_tasks, bitable, feishu_webhook
+from routers import multi_agent, organization
 
 
 def _safe_migrate(engine):
@@ -66,15 +67,14 @@ app.include_router(knowledge.router, prefix="/api/knowledge", tags=["knowledge"]
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(agent.router, prefix="/api/agent", tags=["agent"])
 app.include_router(agent_admin.router, prefix="/api/agent", tags=["agent-admin"])
-app.include_router(employees.router, prefix="/api/employees", tags=["employees"])
+app.include_router(organization.router, prefix="/api", tags=["organization"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(approvals.router, prefix="/api/approvals", tags=["approvals"])
 app.include_router(audit_logs.router, prefix="/api/audit-logs", tags=["audit-logs"])
-app.include_router(coaching.router, prefix="/api/coaching", tags=["coaching"])
 app.include_router(scheduled_tasks.router, prefix="/api/scheduled-tasks", tags=["scheduled-tasks"])
-app.include_router(teams.router, prefix="/api/teams", tags=["teams"])
 app.include_router(bitable.router, prefix="/api/bitable", tags=["bitable"])
 app.include_router(feishu_webhook.router, prefix="/api/feishu", tags=["feishu-webhook"])
+app.include_router(multi_agent.router, prefix="/api/multi-agent", tags=["multi-agent"])
 
 
 @app.get("/api/health")

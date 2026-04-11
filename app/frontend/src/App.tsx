@@ -11,6 +11,9 @@ import Approvals from './pages/Approvals';
 import AuditLogs from './pages/AuditLogs';
 import Agent from './pages/Agent';
 import DataCenter from './pages/DataCenter';
+import MultiAgentDashboard from './pages/MultiAgentDashboard';
+import AgentAnalysis from './pages/AgentAnalysis';
+import ReviewSedimentation from './pages/ReviewSedimentation';
 
 export default function App() {
   return (
@@ -27,6 +30,9 @@ export default function App() {
         <Route path="/approvals" element={<Approvals />} />
         <Route path="/audit-logs" element={<AuditLogs />} />
         <Route path="/agent" element={<Agent />} />
+        <Route path="/pod-dashboard" element={<MultiAgentDashboard />} />
+        <Route path="/pod-analysis" element={<AgentAnalysis />} />
+        <Route path="/pod-review" element={<ReviewSedimentation />} />
       </Route>
     </Routes>
   );

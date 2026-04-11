@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send } from 'lucide-react';
-import { chatWithAgent, getAgentHistory, ChatMessage } from '../api/client';
+import { chatWithAgent, chatWithAgentStream, getAgentHistory, multiAgentChat, ChatMessage } from '../api/client';
 
 interface ChatDrawerProps { open: boolean; onClose: () => void; }
 
@@ -16,6 +16,7 @@ export default function ChatDrawer({ open, onClose }: ChatDrawerProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agentMode, setAgentMode] = useState<'full' | 'multi_agent'>('full');
   const messagesEnd = useRef<HTMLDivElement>(null);
 
   const loadHistory = useCallback(async () => {
@@ -30,9 +31,38 @@ export default function ChatDrawer({ open, onClose }: ChatDrawerProps) {
     setMessages(prev => [...prev, { role: 'user', content }]);
     setInput('');
     setLoading(true);
-    try { const reply = await chatWithAgent(content); setMessages(prev => [...prev, reply]); }
-    catch { setMessages(prev => [...prev, { role: 'assistant', content: '请求失败，请稍后重试' }]); }
-    setLoading(false);
+    try {
+      if (agentMode === 'multi_agent') {
+        const res = await multiAgentChat(content);
+        setMessages(prev => [...prev, { role: 'assistant', content: res.response }]);
+        setLoading(false);
+      } else {
+        setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+        await chatWithAgentStream(
+          content,
+          (chunk) => {
+            setMessages(prev => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last && last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, content: last.content + chunk };
+              }
+              return updated;
+            });
+          },
+          () => setLoading(false),
+        );
+      }
+    } catch {
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant' && !last.content) {
+          return [...prev.slice(0, -1), { role: 'assistant' as const, content: '请求失败，请稍后重试' }];
+        }
+        return [...prev, { role: 'assistant' as const, content: '请求失败，请稍后重试' }];
+      });
+      setLoading(false);
+    }
   };
 
   if (!open) return null;
@@ -73,6 +103,18 @@ export default function ChatDrawer({ open, onClose }: ChatDrawerProps) {
         </div>
 
         <div className="border-t border-border-subtle p-3 space-y-2">
+          <div className="flex gap-1.5 mb-1">
+            {([['full', '通用模式'], ['multi_agent', 'POD Agent']] as const).map(([mode, label]) => (
+              <button key={mode} onClick={() => setAgentMode(mode)}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded-pill transition-colors ${
+                  agentMode === mode
+                    ? 'bg-accent text-white'
+                    : 'border border-border text-txt-3 hover:text-accent hover:border-accent/30'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {QUICK_COMMANDS.map(qc => (
               <button key={qc.cmd} onClick={() => send(qc.cmd)}

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Database, RefreshCw, Search } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Database, RefreshCw, Search, CalendarPlus, Upload } from 'lucide-react';
 import Modal from '../components/Modal';
 import {
   getBitableOverview,
@@ -7,6 +7,8 @@ import {
   syncBitableAlias,
   getBitableRecords,
   testBitableConnection,
+  generateDailyRows,
+  importDailyOpsCsv,
   type BitableTableOverview,
   type BitableRecordRow,
 } from '../api/client';
@@ -34,6 +36,11 @@ export default function DataCenter() {
   const [recLoading, setRecLoading] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const [lastGlobalSync, setLastGlobalSync] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const loadOverview = useCallback(async () => {
     setLoading(true);
@@ -119,8 +126,59 @@ export default function DataCenter() {
     }
   };
 
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGenResult(null);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await generateDailyRows(today);
+      setGenResult(res.message || `已生成 ${res.created} 行`);
+      loadOverview();
+    } catch (e) { setGenResult(`失败: ${e}`); }
+    setGenerating(false);
+  };
+
+  const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await importDailyOpsCsv(file);
+      setImportResult(res.message || `导入 ${res.imported} 行`);
+      if (res.error) setImportResult(prev => `${prev} (${res.error})`);
+      loadOverview();
+    } catch (err) { setImportResult(`失败: ${err}`); }
+    setImporting(false);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
   return (
     <div className="space-y-5">
+      {/* Daily ops tools */}
+      <div className="rounded-card border border-border bg-surface-1 p-4">
+        <h3 className="text-[13px] font-semibold text-txt-1 mb-3">每日运营数据 · 快捷工具</h3>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium bg-accent text-white rounded-btn hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          >
+            <CalendarPlus className={`w-4 h-4 ${generating ? 'animate-pulse' : ''}`} />
+            {generating ? '生成中…' : '一键生成今日空行'}
+          </button>
+          <label className="inline-flex items-center gap-2 px-4 py-2 text-[13px] font-medium border border-border rounded-btn hover:bg-surface-3 cursor-pointer transition-colors">
+            <Upload className="w-4 h-4" />
+            {importing ? '导入中…' : '导入 CSV'}
+            <input ref={fileRef} type="file" accept=".csv,.tsv,.txt" onChange={handleCsvUpload} className="hidden" />
+          </label>
+          <span className="text-[12px] text-txt-4">支持从 TikTok / Shopee / Temu 后台导出的 CSV</span>
+        </div>
+        {genResult && <div className="mt-2 text-[12px] text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-btn">{genResult}</div>}
+        {importResult && <div className="mt-2 text-[12px] text-blue-700 bg-blue-50 px-3 py-1.5 rounded-btn">{importResult}</div>}
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div

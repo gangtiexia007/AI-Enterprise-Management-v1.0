@@ -58,6 +58,15 @@ def check_overdue_tasks(db: Session) -> int:
     for task in tasks:
         task.status = TaskStatus.OVERDUE
         task.updated_at = datetime.utcnow()
+        days_overdue = (date.today() - task.deadline).days if task.deadline else 0
+        db.add(AuditLog(
+            action="rule_alert:overdue",
+            detail=f"任务「{task.title}」已逾期{days_overdue}天，负责人：{task.assignee_name or '未指派'}",
+            actor="rules_engine",
+            resource_type="task",
+            resource_id=str(task.id),
+            created_at=datetime.utcnow(),
+        ))
     if tasks:
         db.commit()
         _notify_status_change(db, tasks, "overdue")
@@ -82,6 +91,14 @@ def check_escalations(db: Session) -> int:
         if not existing:
             msg = f"任务「{task.title}」已逾期 {days_overdue} 天，请尽快处理。"
             db.add(EscalationLog(task_id=task.id, level="employee", message=msg))
+            db.add(AuditLog(
+                action="rule_alert:escalation",
+                detail=f"任务「{task.title}」逾期{days_overdue}天，首次提醒负责人",
+                actor="rules_engine",
+                resource_type="task",
+                resource_id=str(task.id),
+                created_at=datetime.utcnow(),
+            ))
             _try_feishu_reminder(task, days_overdue)
             created += 1
 
@@ -91,6 +108,14 @@ def check_escalations(db: Session) -> int:
             if hours_since >= threshold:
                 msg = f"任务「{task.title}」逾期 {days_overdue} 天且负责人未回应，已升级至老板。"
                 db.add(EscalationLog(task_id=task.id, level="boss", message=msg))
+                db.add(AuditLog(
+                    action="rule_alert:escalation",
+                    detail=f"任务「{task.title}」逾期{days_overdue}天，升级至老板",
+                    actor="rules_engine",
+                    resource_type="task",
+                    resource_id=str(task.id),
+                    created_at=datetime.utcnow(),
+                ))
                 _try_feishu_boss_notify(db, task, msg)
                 _create_overdue_approval(db, task, days_overdue)
                 created += 1
@@ -101,6 +126,14 @@ def check_escalations(db: Session) -> int:
             if hours_since >= threshold:
                 msg = f"⚠️ 紧急: 任务「{task.title}」逾期 {days_overdue} 天，已多次催办无响应。"
                 db.add(EscalationLog(task_id=task.id, level="urgent", message=msg))
+                db.add(AuditLog(
+                    action="rule_alert:escalation",
+                    detail=f"任务「{task.title}」逾期{days_overdue}天，紧急升级（多次催办无响应）",
+                    actor="rules_engine",
+                    resource_type="task",
+                    resource_id=str(task.id),
+                    created_at=datetime.utcnow(),
+                ))
                 _try_feishu_boss_notify(db, task, msg)
                 created += 1
 
@@ -186,17 +219,18 @@ def check_kpi_alerts(db: Session) -> int:
             continue
         seen_employees.add(r.employee_name)
         existing = db.query(AuditLog).filter(
-            AuditLog.action == "kpi_alert",
+            AuditLog.action.in_(["kpi_alert", "rule_alert:kpi_low"]),
             AuditLog.resource_id == str(r.employee_id),
             AuditLog.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0),
         ).first()
         if not existing:
             db.add(AuditLog(
-                action="kpi_alert",
-                detail=f"{r.employee_name} 的 KPI 指标「{r.metric_name}」得分 {r.score} 低于阈值 {threshold}",
+                action="rule_alert:kpi_low",
+                detail=f"{r.employee_name} 的 {r.metric_name} 得分 {r.score}，低于阈值 {threshold}",
                 actor="rules_engine",
                 resource_type="kpi",
-                resource_id=str(r.employee_id),
+                resource_id=str(r.id),
+                created_at=datetime.utcnow(),
             ))
             _try_feishu_boss_text(db, f"📉 KPI 预警: {r.employee_name} 的「{r.metric_name}」得分 {r.score}，低于阈值 {threshold}")
             alerted += 1

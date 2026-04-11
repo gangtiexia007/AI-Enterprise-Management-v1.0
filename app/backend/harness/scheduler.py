@@ -12,6 +12,7 @@ Jobs:
 - kpi_alert_check: low KPI alerts (every 12 hours)
 """
 import logging
+from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -264,6 +265,19 @@ def _run_kpi_alert_check():
         db.close()
 
 
+def _run_pod_rules():
+    """Run POD data-driven rules (style grading, niche health, alerts)."""
+    from harness.pod_rules import run_all_pod_rules
+    db = SessionLocal()
+    try:
+        results = run_all_pod_rules(db)
+        logger.info(f"POD rules: {results}")
+    except Exception:
+        logger.exception("Error in POD rules")
+    finally:
+        db.close()
+
+
 def _log_scheduled(task_type: str, detail: str):
     from models import AuditLog
     db = SessionLocal()
@@ -303,9 +317,26 @@ def start_scheduler():
     _scheduler.add_job(_run_token_budget_check, IntervalTrigger(hours=6), id="token_budget_check")
     _scheduler.add_job(_run_approval_timeout_check, IntervalTrigger(hours=4), id="approval_timeout_check")
     _scheduler.add_job(_run_kpi_alert_check, IntervalTrigger(hours=12), id="kpi_alert_check")
+    _scheduler.add_job(_run_pod_rules, CronTrigger(hour=10), id="pod_rules_daily")
 
     _scheduler.start()
     logger.info(
         "Scheduler started — checks every %dm, daily report at %02d:%02d",
         interval, hour, minute,
     )
+
+
+def get_scheduler() -> BackgroundScheduler | None:
+    return _scheduler
+
+
+TASK_TYPE_TO_JOB_ID: dict[str, str] = {
+    "daily_report": "daily_report_push",
+    "weekly_report": "weekly_report_push",
+    "coaching": "coaching_suggestions",
+    "memory_distill": "memory_distillation",
+    "token_budget": "token_budget_check",
+    "approval_timeout": "approval_timeout_check",
+    "kpi_alert": "kpi_alert_check",
+    "pod_rules": "pod_rules_daily",
+}

@@ -1,12 +1,11 @@
-"""Agent administration: Agent config, SubAgents, Skills CRUD."""
+"""Agent administration: Agent config, Skills CRUD."""
 import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Agent, SubAgentModel, Skill, AgentSkill, AuditLog
+from models import Agent, Skill, AgentSkill, AuditLog
 from schemas import (
     AgentCreate, AgentUpdate, AgentOut,
-    SubAgentCreate, SubAgentUpdate, SubAgentOut,
     SkillCreate, SkillUpdate, SkillOut,
 )
 from datetime import datetime
@@ -47,49 +46,6 @@ def update_agent_config(data: AgentUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(agent)
     return agent
-
-
-# ───────── Sub-Agents ─────────
-
-@router.get("/sub-agents", response_model=list[SubAgentOut])
-def list_sub_agents(db: Session = Depends(get_db)):
-    from harness.sub_agents import sub_agent_manager
-    sub_agent_manager.ensure_defaults_in_db(db)
-    return db.query(SubAgentModel).all()
-
-
-@router.post("/sub-agents", response_model=SubAgentOut)
-def create_sub_agent(data: SubAgentCreate, db: Session = Depends(get_db)):
-    sa = SubAgentModel(**data.model_dump())
-    db.add(sa)
-    db.commit()
-    db.refresh(sa)
-    db.add(AuditLog(action="create_sub_agent", detail=f"Created sub-agent: {sa.name}", actor="admin", resource_type="sub_agent", resource_id=str(sa.id)))
-    db.commit()
-    return sa
-
-
-@router.put("/sub-agents/{sa_id}", response_model=SubAgentOut)
-def update_sub_agent(sa_id: int, data: SubAgentUpdate, db: Session = Depends(get_db)):
-    sa = db.query(SubAgentModel).filter(SubAgentModel.id == sa_id).first()
-    if not sa:
-        raise HTTPException(404, "Sub-agent not found")
-    for k, v in data.model_dump(exclude_unset=True).items():
-        setattr(sa, k, v)
-    db.commit()
-    db.refresh(sa)
-    return sa
-
-
-@router.delete("/sub-agents/{sa_id}")
-def delete_sub_agent(sa_id: int, db: Session = Depends(get_db)):
-    sa = db.query(SubAgentModel).filter(SubAgentModel.id == sa_id).first()
-    if not sa:
-        raise HTTPException(404, "Sub-agent not found")
-    db.delete(sa)
-    db.add(AuditLog(action="delete_sub_agent", detail=f"Deleted sub-agent: {sa.name}", actor="admin", resource_type="sub_agent", resource_id=str(sa_id)))
-    db.commit()
-    return {"message": "deleted"}
 
 
 # ───────── Skills ─────────

@@ -62,6 +62,9 @@ class TaskBase(BaseModel):
     deadline: Optional[date] = None
     goal_id: Optional[int] = None
     priority: str = "normal"
+    task_type: str = ""
+    parent_task_id: Optional[int] = None
+    auto_next_config: str = ""
 
 class TaskCreate(TaskBase): pass
 class TaskUpdate(BaseModel):
@@ -72,6 +75,8 @@ class TaskUpdate(BaseModel):
     deadline: Optional[date] = None
     status: Optional[str] = None
     priority: Optional[str] = None
+    task_type: Optional[str] = None
+    auto_next_config: Optional[str] = None
 
 class TaskOut(TaskBase):
     id: int
@@ -80,6 +85,52 @@ class TaskOut(TaskBase):
     updated_at: datetime
     class Config:
         from_attributes = True
+
+
+TASK_TEMPLATES = {
+    "赛道研究": {
+        "task_type": "赛道研究",
+        "description": "选品研究：发掘并拆分细分赛道，输出可执行的赛道方向+文案清单",
+        "priority": "high",
+        "deadline_offset_days": 3,
+        "auto_next_config": '{"next_type":"铺货上架","assignee_department":"铺货组","deadline_offset_hours":72,"title_template":"铺货：{context} 首批上架","description_template":"按矩阵铺货流程完成 {context} 的首批 20-50 款上架，上架后在款式跟踪表中录入记录。"}'
+    },
+    "铺货上架": {
+        "task_type": "铺货上架",
+        "description": "按矩阵展开出设计 → 写产品链接 → 上架到测试店，每日 10-15 款",
+        "priority": "high",
+        "deadline_offset_days": 3,
+        "auto_next_config": '{"next_type":"数据检查","assignee_department":"优化组","deadline_offset_hours":72,"title_template":"数据检查：{context} 3日数据","description_template":"采集 {context} 上架后 3 天的曝光/点击数据，录入款式跟踪表，标记初步分级。"}'
+    },
+    "数据检查": {
+        "task_type": "数据检查",
+        "description": "采集各平台数据，更新款式跟踪表，按筛选规则标记 S/A/B/C 分级",
+        "priority": "normal",
+        "deadline_offset_days": 3,
+        "auto_next_config": ""
+    },
+    "变体制作": {
+        "task_type": "变体制作",
+        "description": "为 S 级爆款制作 5-10 个变体（换文案/配色/字体/排版），移入垂直店",
+        "priority": "high",
+        "deadline_offset_days": 2,
+        "auto_next_config": ""
+    },
+    "产品优化": {
+        "task_type": "产品优化",
+        "description": "对 B 类款式进行优化：换主图/改标题标签/调价格，一次只改一个变量",
+        "priority": "normal",
+        "deadline_offset_days": 2,
+        "auto_next_config": ""
+    },
+    "跨平台分发": {
+        "task_type": "跨平台分发",
+        "description": "将已验证的设计同步到其他平台（TikTok↔Shopee↔Temu），适配各平台规则",
+        "priority": "normal",
+        "deadline_offset_days": 3,
+        "auto_next_config": ""
+    },
+}
 
 
 # ---------- Feedback ----------
@@ -294,37 +345,6 @@ class AgentOut(AgentBase):
     id: int
     created_at: datetime
     updated_at: datetime
-    class Config:
-        from_attributes = True
-
-
-class SubAgentBase(BaseModel):
-    parent_agent_id: Optional[int] = None
-    role: str
-    name: str
-    description: str = ""
-    model: str = ""
-    allowed_tools: str = "[]"
-    read_only: int = 1
-    can_spawn_children: int = 0
-    system_prompt: str = ""
-    status: str = "active"
-
-class SubAgentCreate(SubAgentBase): pass
-class SubAgentUpdate(BaseModel):
-    role: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
-    model: Optional[str] = None
-    allowed_tools: Optional[str] = None
-    read_only: Optional[int] = None
-    can_spawn_children: Optional[int] = None
-    system_prompt: Optional[str] = None
-    status: Optional[str] = None
-
-class SubAgentOut(SubAgentBase):
-    id: int
-    created_at: datetime
     class Config:
         from_attributes = True
 

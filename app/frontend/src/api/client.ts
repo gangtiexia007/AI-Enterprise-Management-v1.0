@@ -32,6 +32,9 @@ export interface Task {
   priority?: 'normal' | 'high' | 'urgent';
   status?: string;
   goal_id?: number;
+  task_type?: string;
+  parent_task_id?: number;
+  auto_next_config?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -45,6 +48,8 @@ export const createTask = (data: Partial<Task>) => api.post<Task>('/tasks', data
 export const updateTask = (id: number, data: Partial<Task>) => api.put<Task>(`/tasks/${id}`, data);
 export const deleteTask = (id: number) => api.del(`/tasks/${id}`);
 export const dispatchTask = (id: number) => api.post(`/tasks/${id}/dispatch`);
+export const completeTask = (id: number) => api.post<Task>(`/tasks/${id}/complete`);
+export const getTaskTemplates = () => api.get<Record<string, { task_type: string; description: string; priority: string; deadline_offset_days: number }>>('/tasks/templates');
 
 /* ---------- Goals ---------- */
 
@@ -243,6 +248,40 @@ export const chatWithAgent = (content: string) =>
   api.post<ChatMessage>('/agent/chat', { content });
 export const getAgentHistory = () => api.get<ChatMessage[]>('/agent/history');
 
+export const chatWithAgentStream = async (
+  message: string,
+  onChunk: (chunk: string) => void,
+  onDone: () => void,
+) => {
+  const res = await fetch(`${BASE}/agent/chat-stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) throw new Error(`Stream failed: ${res.status}`);
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No reader');
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.content) onChunk(data.content);
+          if (data.done) { onDone(); return; }
+        } catch { /* ignore malformed SSE lines */ }
+      }
+    }
+  }
+  onDone();
+};
+
 /* ---------- Agent Admin ---------- */
 
 export interface AgentConfig {
@@ -259,21 +298,6 @@ export interface AgentConfig {
   updated_at: string;
 }
 
-export interface SubAgent {
-  id: number;
-  parent_agent_id?: number;
-  role: string;
-  name: string;
-  description: string;
-  model: string;
-  allowed_tools: string;
-  read_only: number;
-  can_spawn_children: number;
-  system_prompt: string;
-  status: string;
-  created_at: string;
-}
-
 export interface SkillItem {
   id: number;
   name: string;
@@ -288,11 +312,6 @@ export interface SkillItem {
 
 export const getAgentConfig = () => api.get<AgentConfig>('/agent/config');
 export const updateAgentConfig = (data: Partial<AgentConfig>) => api.put<AgentConfig>('/agent/config', data);
-
-export const getSubAgents = () => api.get<SubAgent[]>('/agent/sub-agents');
-export const createSubAgent = (data: Partial<SubAgent>) => api.post<SubAgent>('/agent/sub-agents', data);
-export const updateSubAgent = (id: number, data: Partial<SubAgent>) => api.put<SubAgent>(`/agent/sub-agents/${id}`, data);
-export const deleteSubAgent = (id: number) => api.del(`/agent/sub-agents/${id}`);
 
 export const getSkills = (type?: string) => {
   const qs = type ? `?skill_type=${type}` : '';
@@ -415,3 +434,94 @@ export const getBitableRecords = (
     `/bitable/tables/${encodeURIComponent(alias)}/records${qs ? `?${qs}` : ''}`,
   );
 };
+
+/* ---------- Daily Ops Helpers ---------- */
+
+export const getDailyOpsStores = () =>
+  api.get<{ stores: { store: string; platform: string }[]; count: number }>('/bitable/daily-ops/stores');
+
+export const generateDailyRows = (targetDate?: string) => {
+  const qs = targetDate ? `?target_date=${targetDate}` : '';
+  return api.post<{ created: number; date: string; stores?: string[]; message: string; error?: string }>(
+    `/bitable/daily-ops/generate${qs}`,
+  );
+};
+
+export const importDailyOpsCsv = async (file: File, targetDate?: string) => {
+  const form = new FormData();
+  form.append('file', file);
+  if (targetDate) form.append('target_date', targetDate);
+  const resp = await fetch(`${(import.meta as Record<string, any>).env?.VITE_API_BASE || '/api'}/bitable/daily-ops/import-csv`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json() as Promise<{ imported: number; skipped: number; message: string; error?: string }>;
+};
+
+/* ---------- Multi-Agent ---------- */
+
+export interface MultiAgentRun {
+  id: number;
+  run_id: string;
+  task_type: string;
+  route_name: string;
+  agents_called: string | string[];
+  input_summary: string;
+  final_output: string;
+  total_tokens: number;
+  duration_ms: number;
+  data_sufficiency: string;
+  created_at: string;
+}
+
+export interface AgentMemoryItem {
+  id: number;
+  memory_type: string;
+  title: string;
+  content?: string;
+  level?: number;
+  platform: string;
+  market: string;
+  persona: string;
+  niche: string;
+  conditions: string;
+  action: string;
+  result: string;
+  why: string;
+  reusable: number;
+  source_run_id: string;
+  created_at: string;
+}
+
+export const multiAgentChat = (message: string, extra_data?: Record<string, unknown>) =>
+  api.post<{ response: string; run_id: string; task_type: string }>('/multi-agent/chat', { message, ...extra_data });
+
+export const getMultiAgentRuns = (params?: { limit?: number; offset?: number }) => {
+  const sp = new URLSearchParams();
+  if (params?.limit) sp.set('limit', String(params.limit));
+  if (params?.offset) sp.set('offset', String(params.offset));
+  const qs = sp.toString();
+  return api.get<MultiAgentRun[]>(`/multi-agent/runs${qs ? `?${qs}` : ''}`);
+};
+
+export const getMultiAgentRun = (runId: string) =>
+  api.get<MultiAgentRun>(`/multi-agent/runs/${runId}`);
+
+export const getMultiAgentConfig = () =>
+  api.get<{ agents: { id: string; name: string; description: string; enabled: boolean }[] }>('/multi-agent/config');
+
+export const toggleAgent = (agentId: string, enabled: boolean) =>
+  api.put<{ agent_id: string; enabled: boolean }>(`/multi-agent/config/${agentId}`, { enabled });
+
+export const getAgentMemory = (params?: { memory_type?: string; platform?: string; market?: string }) => {
+  const sp = new URLSearchParams();
+  if (params?.memory_type) sp.set('memory_type', params.memory_type);
+  if (params?.platform) sp.set('platform', params.platform);
+  if (params?.market) sp.set('market', params.market);
+  const qs = sp.toString();
+  return api.get<AgentMemoryItem[]>(`/multi-agent/memory${qs ? `?${qs}` : ''}`);
+};
+
+export const createAgentMemory = (data: Partial<AgentMemoryItem>) =>
+  api.post<AgentMemoryItem>('/multi-agent/memory', data);

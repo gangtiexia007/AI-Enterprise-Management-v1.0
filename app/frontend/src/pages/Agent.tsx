@@ -1,24 +1,22 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Bot, Users, Puzzle, Plus, Trash2, ToggleLeft, ToggleRight, FlaskConical, Save, Check } from 'lucide-react';
+import { Puzzle, Plus, Trash2, ToggleLeft, ToggleRight, FlaskConical, Settings2, ChevronDown, ChevronUp, Brain } from 'lucide-react';
 import Modal from '../components/Modal';
 import {
-  getAgentConfig, updateAgentConfig,
-  getSubAgents, createSubAgent, updateSubAgent, deleteSubAgent,
   getSkills, createSkill, deleteSkill, toggleSkill, testSkill,
-  type AgentConfig, type SubAgent, type SkillItem,
+  getMultiAgentConfig, toggleAgent as toggleAgentApi,
+  type SkillItem,
 } from '../api/client';
 
-type TabId = 'overview' | 'sub-agents' | 'skills';
-const TABS: { id: TabId; label: string; icon: typeof Bot }[] = [
-  { id: 'overview', label: 'Agent 概览', icon: Bot },
-  { id: 'sub-agents', label: '子 Agent', icon: Users },
+type TabId = 'skills' | 'pod-agents';
+const TABS: { id: TabId; label: string; icon: typeof Puzzle }[] = [
   { id: 'skills', label: 'Skills 管理', icon: Puzzle },
+  { id: 'pod-agents', label: 'POD Agents', icon: Brain },
 ];
 const inputCls = "w-full rounded-btn border border-border bg-surface-1 px-3 py-2 text-[13px] text-txt-1 placeholder:text-txt-4 focus:border-accent/40 focus:outline-none transition-colors";
 const SKILL_TYPE_LABELS: Record<string, string> = { builtin: '内置', custom: '自定义', mcp: 'MCP' };
 
 export default function AgentPage() {
-  const [tab, setTab] = useState<TabId>('overview');
+  const [tab, setTab] = useState<TabId>('skills');
 
   return (
     <div className="space-y-5">
@@ -30,159 +28,8 @@ export default function AgentPage() {
           </button>
         ))}
       </div>
-      {tab === 'overview' && <AgentOverview />}
-      {tab === 'sub-agents' && <SubAgentsTab />}
       {tab === 'skills' && <SkillsTab />}
-    </div>
-  );
-}
-
-function AgentOverview() {
-  const [config, setConfig] = useState<AgentConfig | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => { getAgentConfig().then(setConfig).catch(() => {}); }, []);
-
-  const save = async () => {
-    if (!config) return;
-    setSaving(true);
-    try {
-      const updated = await updateAgentConfig({
-        name: config.name,
-        mode: config.mode,
-        model_primary: config.model_primary,
-        model_fallback: config.model_fallback,
-        system_prompt: config.system_prompt,
-        max_tokens: config.max_tokens,
-      });
-      setConfig(updated);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    } catch (e) { alert(String(e)); }
-    setSaving(false);
-  };
-
-  if (!config) return <div className="text-center py-12 text-txt-4 text-[13px]">加载中...</div>;
-
-  return (
-    <div className="max-w-2xl space-y-5">
-      <div className="rounded-card border border-border bg-surface-1 p-5 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <Bot className="w-5 h-5 text-accent" />
-          <h3 className="text-[15px] font-semibold text-txt-1">Agent 配置</h3>
-          <span className={`ml-auto inline-flex px-2 py-0.5 rounded-micro text-[11px] font-medium ${config.mode === 'full' ? 'bg-emerald-50 text-emerald-700' : config.mode === 'light' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>
-            {config.mode === 'full' ? '完整模式' : config.mode === 'light' ? '轻量模式' : '命令模式'}
-          </span>
-        </div>
-
-        <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">Agent 名称</label>
-          <input value={config.name} onChange={e => setConfig({...config, name: e.target.value})} className={inputCls} /></div>
-
-        <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">运行模式</label>
-          <div className="flex gap-2">
-            {(['command', 'light', 'full'] as const).map(m => (
-              <button key={m} onClick={() => setConfig({...config, mode: m})}
-                className={`flex-1 px-3 py-2 text-[13px] font-medium rounded-btn border transition-colors ${config.mode === m ? 'border-accent bg-accent-soft text-accent' : 'border-border text-txt-3 hover:border-border-solid'}`}>
-                {m === 'full' ? '完整模式' : m === 'light' ? '轻量模式' : '命令模式'}
-                <div className="text-[10px] mt-0.5 font-normal text-txt-4">
-                  {m === 'command' ? '零 Token' : m === 'light' ? '小模型+只读' : '全功能+工具'}
-                </div>
-              </button>
-            ))}
-          </div></div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">主模型</label>
-            <input value={config.model_primary} onChange={e => setConfig({...config, model_primary: e.target.value})} className={inputCls} /></div>
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">回退模型</label>
-            <input value={config.model_fallback} onChange={e => setConfig({...config, model_fallback: e.target.value})} className={inputCls} /></div>
-        </div>
-
-        <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">Max Tokens</label>
-          <input type="number" value={config.max_tokens} onChange={e => setConfig({...config, max_tokens: Number(e.target.value)})} className={inputCls} /></div>
-
-        <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">系统 Prompt</label>
-          <textarea value={config.system_prompt} onChange={e => setConfig({...config, system_prompt: e.target.value})} rows={5} placeholder="自定义系统指令..." className={inputCls} /></div>
-
-        <button onClick={save} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium bg-accent text-white rounded-btn hover:bg-accent-hover disabled:opacity-40 transition-colors">
-          {saved ? <><Check className="w-3.5 h-3.5" /> 已保存</> : <><Save className="w-3.5 h-3.5" /> {saving ? '保存中...' : '保存配置'}</>}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SubAgentsTab() {
-  const [agents, setAgents] = useState<SubAgent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState({ role: 'director', name: '', description: '', model: '', allowed_tools: '[]', read_only: 1, can_spawn_children: 0, system_prompt: '' });
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => { setLoading(true); try { setAgents(await getSubAgents()); } catch { setAgents([]); } setLoading(false); }, []);
-  useEffect(() => { load(); }, [load]);
-
-  const openCreate = () => { setEditingId(null); setForm({ role: 'director', name: '', description: '', model: '', allowed_tools: '[]', read_only: 1, can_spawn_children: 0, system_prompt: '' }); setModalOpen(true); };
-  const openEdit = (sa: SubAgent) => { setEditingId(sa.id); setForm({ role: sa.role, name: sa.name, description: sa.description, model: sa.model, allowed_tools: sa.allowed_tools, read_only: sa.read_only, can_spawn_children: sa.can_spawn_children, system_prompt: sa.system_prompt }); setModalOpen(true); };
-  const save = async () => { setSaving(true); try { if (editingId) await updateSubAgent(editingId, form); else await createSubAgent(form); setModalOpen(false); load(); } catch (e) { alert(String(e)); } setSaving(false); };
-  const handleDelete = async (id: number) => { if (confirm('确认删除？')) { await deleteSubAgent(id); load(); } };
-
-  const roleColor: Record<string, string> = { director: 'bg-purple-50 text-purple-600', analyst: 'bg-blue-50 text-blue-600', coach: 'bg-emerald-50 text-emerald-700', executor: 'bg-amber-50 text-amber-700' };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-txt-3">管理子 Agent 角色，每个子 Agent 有独立的模型和权限配置。</p>
-        <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium bg-accent text-white rounded-btn hover:bg-accent-hover transition-colors"><Plus className="w-3.5 h-3.5" /> 新建</button>
-      </div>
-      {loading ? <div className="text-center py-12 text-txt-4 text-[13px]">加载中...</div> : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {agents.map(sa => (
-            <div key={sa.id} className="rounded-card border border-border bg-surface-1 p-4 hover:shadow-sm transition-all">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[14px] font-semibold text-txt-1">{sa.name}</span>
-                    <span className={`inline-flex px-1.5 py-0.5 rounded-micro text-[10px] font-medium ${roleColor[sa.role] || 'bg-gray-100 text-gray-600'}`}>{sa.role}</span>
-                    {sa.read_only ? <span className="text-[10px] text-txt-4 border border-border-subtle rounded-micro px-1">只读</span> : null}
-                  </div>
-                  <p className="text-[12px] text-txt-3 mt-1">{sa.description || '暂无描述'}</p>
-                  {sa.model && <p className="text-[11px] text-txt-4 mt-1">模型: {sa.model}</p>}
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button onClick={() => openEdit(sa)} className="text-[12px] text-txt-4 hover:text-txt-2 transition-colors">编辑</button>
-                  <button onClick={() => handleDelete(sa.id)} className="text-[12px] text-red-400 hover:text-red-600 transition-colors">删除</button>
-                </div>
-              </div>
-              <div className="mt-2 text-[11px] text-txt-4">
-                允许工具: {(() => { try { const t = JSON.parse(sa.allowed_tools); return t.length > 0 ? t.join(', ') : '全部'; } catch { return '全部'; } })()}
-              </div>
-            </div>
-          ))}
-          {agents.length === 0 && <div className="col-span-2 text-center py-12 text-txt-4 text-[13px]">暂无子 Agent</div>}
-        </div>
-      )}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? '编辑子 Agent' : '新建子 Agent'} width="max-w-lg"
-        footer={<><button onClick={() => setModalOpen(false)} className="px-3 py-1.5 text-[13px] border border-border rounded-btn text-txt-3 hover:bg-surface-3 transition-colors">取消</button>
-          <button onClick={save} disabled={saving || !form.name} className="px-3 py-1.5 text-[13px] bg-accent text-white rounded-btn hover:bg-accent-hover disabled:opacity-40 transition-colors">{saving ? '保存中...' : '保存'}</button></>}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">名称 <span className="text-red-500">*</span></label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className={inputCls} /></div>
-            <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">角色</label>
-              <select value={form.role} onChange={e => setForm({...form, role: e.target.value})} className={inputCls}><option value="director">Director (总监)</option><option value="analyst">Analyst (分析师)</option><option value="coach">Coach (教练)</option><option value="executor">Executor (执行者)</option></select></div>
-          </div>
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">描述</label><textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} className={inputCls} /></div>
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">模型 (留空使用主 Agent 模型)</label><input value={form.model} onChange={e => setForm({...form, model: e.target.value})} placeholder="gpt-4o-mini" className={inputCls} /></div>
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">允许工具 (JSON 数组)</label><input value={form.allowed_tools} onChange={e => setForm({...form, allowed_tools: e.target.value})} placeholder='["today_tasks", "overdue_tasks"]' className={inputCls} /></div>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 text-[13px] text-txt-2 cursor-pointer"><input type="checkbox" checked={!!form.read_only} onChange={e => setForm({...form, read_only: e.target.checked ? 1 : 0})} className="rounded" /> 只读模式</label>
-            <label className="flex items-center gap-2 text-[13px] text-txt-2 cursor-pointer"><input type="checkbox" checked={!!form.can_spawn_children} onChange={e => setForm({...form, can_spawn_children: e.target.checked ? 1 : 0})} className="rounded" /> 可创建子Agent</label>
-          </div>
-          <div><label className="block text-[12px] font-medium text-txt-3 mb-1.5">自定义 Prompt</label><textarea value={form.system_prompt} onChange={e => setForm({...form, system_prompt: e.target.value})} rows={3} className={inputCls} /></div>
-        </div>
-      </Modal>
+      {tab === 'pod-agents' && <PodAgentsTab />}
     </div>
   );
 }
@@ -273,6 +120,149 @@ function SkillsTab() {
             <textarea value={form.config} onChange={e => setForm({...form, config: e.target.value})} rows={6} placeholder={form.type === 'custom' ? '{"content": "# My Skill\\n\\n步骤1..."}' : '{"endpoint": "http://localhost:8080/mcp", "auth": {"type": "bearer", "token": "..."}}'} className={inputCls + " font-mono text-[12px]"} /></div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+}
+
+const AGENT_DEFS: AgentInfo[] = [
+  { id: 'A1', name: '路由总控 Agent', description: '解析用户指令，分类任务类型，选择执行路线', enabled: true },
+  { id: 'A2', name: '数据门控 Agent', description: '检查所需数据是否充分，不足时标记缺失项', enabled: true },
+  { id: 'A3', name: '细分赛道研究 Agent', description: '分析 micro-niche 可行性，十维评估', enabled: true },
+  { id: 'A4', name: '选品 Agent', description: '根据赛道选品方向给出 SPU 建议', enabled: true },
+  { id: 'A5', name: '文案与 Listing Agent', description: '生成标题、描述、关键词等 Listing 要素', enabled: true },
+  { id: 'A6', name: '定价利润 Agent', description: '计算定价、利润率、促销策略', enabled: true },
+  { id: 'A7', name: '广告投放 Agent', description: '关键词广告策略、出价建议', enabled: true },
+  { id: 'A8', name: '数据分析 Agent', description: '日报/周报/月报数据汇总与趋势分析', enabled: true },
+  { id: 'A9', name: '店铺诊断 Agent', description: '店铺健康度评估与改进建议', enabled: true },
+  { id: 'A10', name: '竞对分析 Agent', description: '竞品对标分析与策略建议', enabled: true },
+  { id: 'A11', name: '归因分析 Agent', description: '漏斗五层归因：曝光/点击/转化/利润/履约', enabled: true },
+  { id: 'A12', name: '任务派发 Agent', description: '将决策结果转化为可执行任务并分配', enabled: true },
+  { id: 'A13', name: '回收验收 Agent', description: '验证任务输出质量，不合格则打回', enabled: true },
+  { id: 'A14', name: '复盘沉淀 Agent', description: '提炼 SOP、案例、反面教材等经验', enabled: true },
+  { id: 'A15', name: '合规风控 Agent', description: '检测高风险表达、平台禁区与侵权', enabled: true },
+  { id: 'A16', name: '市场情报 Agent', description: '监控平台政策变化与市场趋势', enabled: true },
+];
+
+function PodAgentsTab() {
+  const [agents, setAgents] = useState<AgentInfo[]>(AGENT_DEFS);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    getMultiAgentConfig()
+      .then(res => {
+        if (res?.agents && Array.isArray(res.agents)) {
+          const merged = AGENT_DEFS.map(def => {
+            const remote = res.agents.find((a: AgentInfo) => a.id === def.id);
+            return remote ? { ...def, ...remote } : def;
+          });
+          setAgents(merged);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggleAgent = async (id: string) => {
+    const agent = agents.find(a => a.id === id);
+    if (!agent) return;
+    const newEnabled = !agent.enabled;
+    setAgents(prev => prev.map(a => a.id === id ? { ...a, enabled: newEnabled } : a));
+    try {
+      await toggleAgentApi(id, newEnabled);
+    } catch {
+      setAgents(prev => prev.map(a => a.id === id ? { ...a, enabled: !newEnabled } : a));
+    }
+  };
+
+  if (loading) return <div className="text-center py-12 text-txt-4 text-[13px]">加载中...</div>;
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-card border border-border bg-surface-1 p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Settings2 className="w-4 h-4 text-txt-3" />
+          <h3 className="text-[13px] font-semibold text-txt-1">全局设置</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-[12px] font-medium text-txt-3 mb-1.5">默认模型</label>
+            <input readOnly value="gpt-4o-mini"
+              className="w-full rounded-btn border border-border bg-surface-0 px-3 py-2 text-[13px] text-txt-3" />
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium text-txt-3 mb-1.5">单次 Token 预算</label>
+            <input readOnly value="8000"
+              className="w-full rounded-btn border border-border bg-surface-0 px-3 py-2 text-[13px] text-txt-3" />
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium text-txt-3 mb-1.5">已启用 Agent 数</label>
+            <input readOnly value={`${agents.filter(a => a.enabled).length} / ${agents.length}`}
+              className="w-full rounded-btn border border-border bg-surface-0 px-3 py-2 text-[13px] text-txt-3" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        {agents.map(agent => {
+          const isExpanded = expandedId === agent.id;
+          return (
+            <div
+              key={agent.id}
+              className={`rounded-card border bg-surface-1 overflow-hidden transition-all ${agent.enabled ? 'border-border' : 'border-border opacity-60'}`}
+            >
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-micro bg-accent-soft text-accent text-[11px] font-bold flex-shrink-0">
+                        {agent.id}
+                      </span>
+                      <span className="text-[13px] font-medium text-txt-1 truncate">{agent.name}</span>
+                    </div>
+                    <p className="text-[12px] text-txt-4 mt-1.5 line-clamp-2">{agent.description}</p>
+                  </div>
+                  <button onClick={() => toggleAgent(agent.id)} className="flex-shrink-0 mt-0.5">
+                    {agent.enabled
+                      ? <ToggleRight className="w-6 h-6 text-accent" />
+                      : <ToggleLeft className="w-6 h-6 text-txt-4" />
+                    }
+                  </button>
+                </div>
+                <button
+                  onClick={() => setExpandedId(isExpanded ? null : agent.id)}
+                  className="mt-3 flex items-center gap-1 text-[11px] text-accent hover:text-accent-hover transition-colors"
+                >
+                  {isExpanded ? '收起' : '详情'}
+                  {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+              {isExpanded && (
+                <div className="border-t border-border-subtle px-4 py-3 bg-surface-0/50">
+                  <div className="text-[11px] font-medium text-txt-4 mb-1">系统提示词</div>
+                  <div className="text-[12px] text-txt-3 bg-surface-0 rounded-btn p-2 max-h-32 overflow-y-auto font-mono whitespace-pre-wrap">
+                    {`你是 ${agent.name}(${agent.id})。\n${agent.description}\n\n请根据输入数据执行分析并输出结构化结果。`}
+                  </div>
+                  <div className="text-[11px] font-medium text-txt-4 mt-3 mb-1">可用工具</div>
+                  <div className="flex flex-wrap gap-1">
+                    {['read_bitable', 'write_memory', 'send_task'].map(tool => (
+                      <span key={tool} className="inline-block px-1.5 py-0.5 text-[10px] rounded-micro bg-surface-3 text-txt-3">{tool}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

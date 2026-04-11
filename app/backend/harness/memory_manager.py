@@ -11,7 +11,7 @@ import json
 import logging
 from typing import List, Dict, Optional
 from database import SessionLocal
-from models import Conversation, Knowledge, KnowledgeCategory, MemoryEntry
+from models import Conversation, Knowledge, KnowledgeCategory
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -31,9 +31,9 @@ class MemoryManager:
         """Get recent conversation summaries."""
         db = SessionLocal()
         try:
-            entries = db.query(MemoryEntry).filter(
-                MemoryEntry.level == 2,
-            ).order_by(MemoryEntry.created_at.desc()).limit(limit).all()
+            entries = db.query(Knowledge).filter(
+                Knowledge.level == 2,
+            ).order_by(Knowledge.created_at.desc()).limit(limit).all()
             return [{"title": e.title, "content": e.content[:300]} for e in entries]
         finally:
             db.close()
@@ -54,9 +54,9 @@ class MemoryManager:
         """Get distilled long-term patterns."""
         db = SessionLocal()
         try:
-            entries = db.query(MemoryEntry).filter(
-                MemoryEntry.level == 4,
-            ).order_by(MemoryEntry.created_at.desc()).limit(limit).all()
+            entries = db.query(Knowledge).filter(
+                Knowledge.level == 4,
+            ).order_by(Knowledge.created_at.desc()).limit(limit).all()
             return [{"title": e.title, "content": e.content[:300], "confidence": e.confidence} for e in entries]
         finally:
             db.close()
@@ -102,9 +102,10 @@ class MemoryManager:
         """L5 conversations → L4 distilled patterns via AI."""
         db = SessionLocal()
         try:
-            last_distill = db.query(MemoryEntry).filter(
-                MemoryEntry.source_type == "conversation",
-            ).order_by(MemoryEntry.created_at.desc()).first()
+            last_distill = db.query(Knowledge).filter(
+                Knowledge.level == 4,
+                Knowledge.source == "conversation_distill",
+            ).order_by(Knowledge.created_at.desc()).first()
 
             cutoff = last_distill.created_at if last_distill else datetime.utcnow() - timedelta(days=7)
 
@@ -155,14 +156,16 @@ class MemoryManager:
 
                 for insight in insights[:5]:
                     if isinstance(insight, dict) and insight.get("title"):
-                        db.add(MemoryEntry(
+                        db.add(Knowledge(
                             level=4,
                             title=insight["title"][:300],
                             content=insight.get("content", "")[:2000],
-                            source_type="conversation",
-                            source_ids=json.dumps(source_ids[:10]),
+                            category=KnowledgeCategory.CASE,
+                            source="conversation_distill",
                             confidence=0.7,
+                            metadata_json=json.dumps({"source_ids": source_ids[:10]}),
                             created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow(),
                         ))
 
                 db.commit()

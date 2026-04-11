@@ -105,6 +105,23 @@ async def feishu_webhook(
     return {"code": 0}
 
 
+def _classify_agent_mode(text: str) -> str:
+    """Classify message to determine agent mode: command / multi_agent / full."""
+    if text.startswith("/"):
+        return "command"
+    pod_keywords = [
+        "选品", "niche", "listing", "链接", "广告", "归因",
+        "利润", "毛利", "设计", "内容", "营销", "市场拓展",
+        "平台", "竞品", "review", "复盘", "沉淀", "上新",
+        "赛道", "款式", "风格", "temu", "tiktok", "shopee",
+        "pod", "print on demand",
+    ]
+    text_lower = text.lower()
+    if any(kw in text_lower for kw in pod_keywords):
+        return "multi_agent"
+    return "full"
+
+
 async def _handle_message(body: dict) -> None:
     """Process incoming chat message in background and reply via Feishu."""
     event = body.get("event") or {}
@@ -153,7 +170,9 @@ async def _handle_message(body: dict) -> None:
 
         from harness.agent_loop import AgentLoop
         loop = AgentLoop()
-        reply = await loop.run(text, db_session=db, agent_mode="full")
+        mode = _classify_agent_mode(text)
+        logger.info(f"Feishu message routed to mode={mode}")
+        reply = await loop.run(text, db_session=db, agent_mode=mode)
 
         db.add(Conversation(role="assistant", content=reply, created_at=datetime.utcnow()))
         db.add(AuditLog(
