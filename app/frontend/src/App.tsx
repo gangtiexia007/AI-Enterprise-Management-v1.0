@@ -14,6 +14,7 @@ import DataCenter from './pages/DataCenter';
 import MultiAgentDashboard from './pages/MultiAgentDashboard';
 import AgentAnalysis from './pages/AgentAnalysis';
 import ReviewSedimentation from './pages/ReviewSedimentation';
+import PodPerformance from './pages/PodPerformance';
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
         <Route path="/pod-dashboard" element={<MultiAgentDashboard />} />
         <Route path="/pod-analysis" element={<AgentAnalysis />} />
         <Route path="/pod-review" element={<ReviewSedimentation />} />
+        <Route path="/pod-performance" element={<PodPerformance />} />
       </Route>
     </Routes>
   );

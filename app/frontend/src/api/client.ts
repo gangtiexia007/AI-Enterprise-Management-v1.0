@@ -525,3 +525,30 @@ export const getAgentMemory = (params?: { memory_type?: string; platform?: strin
 
 export const createAgentMemory = (data: Partial<AgentMemoryItem>) =>
   api.post<AgentMemoryItem>('/multi-agent/memory', data);
+
+/* ---------- POD Performance ---------- */
+
+export const uploadPodOrders = async (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE}/pod/upload-orders`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`上传失败: ${res.status}`);
+  return res.json() as Promise<{ imported: number; skipped: number; message?: string }>;
+};
+
+export const uploadPodProducts = async (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE}/pod/upload-products`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`上传失败: ${res.status}`);
+  return res.json() as Promise<{ imported: number; skipped: number; message?: string }>;
+};
+
+export const podStats = () => api.get('/pod/stats');
+
+export const podOperatorKpi = (params?: { period_start?: string; period_end?: string }) => {
+  const q = new URLSearchParams(params as Record<string, string>).toString();
+  return api.get(`/pod/operator-kpi${q ? '?' + q : ''}`);
+};
+
+export const podNicheStats = () => api.get('/pod/niche-stats');

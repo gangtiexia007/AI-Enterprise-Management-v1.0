@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import engine, Base
 from routers import tasks, goals, kpi, knowledge, settings, agent, reports, approvals, audit_logs
 from routers import agent_admin, scheduled_tasks, bitable, feishu_webhook
-from routers import multi_agent, organization
+from routers import multi_agent, organization, pod_orders
 
 
 def _safe_migrate(engine):
@@ -75,6 +75,7 @@ app.include_router(scheduled_tasks.router, prefix="/api/scheduled-tasks", tags=[
 app.include_router(bitable.router, prefix="/api/bitable", tags=["bitable"])
 app.include_router(feishu_webhook.router, prefix="/api/feishu", tags=["feishu-webhook"])
 app.include_router(multi_agent.router, prefix="/api/multi-agent", tags=["multi-agent"])
+app.include_router(pod_orders.router, prefix="/api/pod", tags=["pod"])
 
 
 @app.get("/api/health")

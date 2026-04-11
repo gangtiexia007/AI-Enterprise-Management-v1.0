@@ -316,6 +316,65 @@ class Team(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+# ---------- POD 3.0 Performance ----------
+
+class PodOrder(Base):
+    __tablename__ = "pod_orders"
+    id = Column(Integer, primary_key=True)
+    erp_order_id = Column(String(100), unique=True, index=True)
+    platform_order_id = Column(String(100), default="")
+    tracking_number = Column(String(100), default="")
+    platform = Column(String(50), index=True, default="")
+    country = Column(String(10), index=True, default="")
+    store = Column(String(200), index=True, default="")
+    operator = Column(String(50), index=True, default="")
+    platform_product_id = Column(String(100), default="")
+    platform_sku = Column(String(200), default="")
+    product_spec = Column(String(300), default="")
+    sku = Column(String(100), index=True, default="")
+    pod_spec = Column(String(200), default="")
+    quantity = Column(Integer, default=1)
+    unit_price = Column(Float, default=0)
+    discount_price = Column(Float, default=0)
+    total_amount = Column(Float, default=0)
+    paid_amount = Column(Float, default=0)
+    paid_amount_cny = Column(Float, default=0)
+    currency = Column(String(10), default="PHP")
+    payment_method = Column(String(50), default="")
+    production_mode = Column(String(50), default="")
+    order_tag = Column(String(100), default="")
+    product_title = Column(String(500), default="")
+    shipping_fee = Column(Float, default=0)
+    order_status = Column(String(50), default="")
+    status_category = Column(String(20), default="")
+    failure_reason = Column(String(300), default="")
+    niche = Column(String(100), index=True, default="")
+    order_date = Column(Date, index=True)
+    payment_time = Column(DateTime, nullable=True)
+    expected_ship_time = Column(DateTime, nullable=True)
+    arrange_time = Column(DateTime, nullable=True)
+    created_time = Column(DateTime, nullable=True)
+    imported_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PodProduct(Base):
+    __tablename__ = "pod_products"
+    id = Column(Integer, primary_key=True)
+    erp_product_id = Column(String(100), index=True, default="")
+    platform = Column(String(50), index=True, default="")
+    product_name = Column(String(500), default="")
+    platform_sku = Column(String(200), index=True, default="")
+    price = Column(Float, default=0)
+    store = Column(String(200), index=True, default="")
+    operator = Column(String(50), index=True, default="")
+    niche = Column(String(100), index=True, default="")
+    upload_date = Column(Date, index=True)
+    has_order = Column(Integer, default=0)
+    first_order_date = Column(Date, nullable=True)
+    total_orders = Column(Integer, default=0)
+    imported_at = Column(DateTime, default=datetime.utcnow)
+
+
 # ---------- Multi-Agent System ----------
 
 class AgentRun(Base):

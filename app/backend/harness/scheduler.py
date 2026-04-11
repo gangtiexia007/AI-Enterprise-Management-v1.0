@@ -278,6 +278,77 @@ def _run_pod_rules():
         db.close()
 
 
+def _run_currency_update():
+    """每天早上 8:00 从 API 获取实时汇率"""
+    import httpx
+    import json
+    db = SessionLocal()
+    try:
+        url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/cny.json"
+        with httpx.Client(timeout=15) as client:
+            resp = client.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+
+        cny_rates = data.get("cny", {})
+        rates_to_cny = {
+            "CNY": 1.0,
+            "PHP": round(1 / cny_rates.get("php", 8.77), 6) if cny_rates.get("php") else 0.114,
+            "MYR": round(1 / cny_rates.get("myr", 0.58), 6) if cny_rates.get("myr") else 1.722,
+            "THB": round(1 / cny_rates.get("thb", 4.70), 6) if cny_rates.get("thb") else 0.213,
+        }
+
+        from datetime import date as d
+        _upsert_setting(db, "currency_rates", json.dumps(rates_to_cny))
+        _upsert_setting(db, "currency_rates_date", d.today().isoformat())
+        _log_scheduled("currency_update", f"汇率已更新: {rates_to_cny}")
+    except Exception as e:
+        logger.warning(f"Currency update failed (using cached rates): {e}")
+    finally:
+        db.close()
+
+
+def _upsert_setting(db, key: str, value: str):
+    s = db.query(Setting).filter(Setting.key == key).first()
+    if s:
+        s.value = value
+    else:
+        db.add(Setting(key=key, value=value))
+    db.commit()
+
+
+def _run_product_order_refresh():
+    """每天 11:00 刷新产品出单状态"""
+    db = SessionLocal()
+    try:
+        from harness.pod_order_rules import run_hit_rate
+        result = run_hit_rate(db)
+        _log_scheduled("product_order_refresh", f"刷新了 {len(result)} 个运营的产品出单状态")
+    except Exception:
+        logger.exception("Error in product order refresh")
+    finally:
+        db.close()
+
+
+def _run_weekly_kpi_aggregate():
+    """每周二 10:00 聚合上周 KPI 并写入 KPIRecord"""
+    db = SessionLocal()
+    try:
+        from datetime import date as d_cls, timedelta
+        today = d_cls.today()
+        week_end = today - timedelta(days=today.weekday())
+        week_start = week_end - timedelta(days=7)
+        period = f"{week_start.isocalendar()[0]}-W{week_start.isocalendar()[1]:02d}"
+
+        from harness.pod_order_rules import sync_kpi_records
+        count = sync_kpi_records(db, period)
+        _log_scheduled("weekly_kpi_aggregate", f"已同步 {count} 条 KPI 记录 (period={period})")
+    except Exception:
+        logger.exception("Error in weekly KPI aggregate")
+    finally:
+        db.close()
+
+
 def _log_scheduled(task_type: str, detail: str):
     from models import AuditLog
     db = SessionLocal()
@@ -318,6 +389,9 @@ def start_scheduler():
     _scheduler.add_job(_run_approval_timeout_check, IntervalTrigger(hours=4), id="approval_timeout_check")
     _scheduler.add_job(_run_kpi_alert_check, IntervalTrigger(hours=12), id="kpi_alert_check")
     _scheduler.add_job(_run_pod_rules, CronTrigger(hour=10), id="pod_rules_daily")
+    _scheduler.add_job(_run_currency_update, CronTrigger(hour=0, minute=30), id="currency_update")
+    _scheduler.add_job(_run_product_order_refresh, CronTrigger(hour=11), id="product_order_refresh")
+    _scheduler.add_job(_run_weekly_kpi_aggregate, CronTrigger(day_of_week="tue", hour=10), id="weekly_kpi_aggregate")
 
     _scheduler.start()
     logger.info(
@@ -339,4 +413,7 @@ TASK_TYPE_TO_JOB_ID: dict[str, str] = {
     "approval_timeout": "approval_timeout_check",
     "kpi_alert": "kpi_alert_check",
     "pod_rules": "pod_rules_daily",
+    "currency_update": "currency_update",
+    "product_refresh": "product_order_refresh",
+    "kpi_aggregate": "weekly_kpi_aggregate",
 }

@@ -1,5 +1,46 @@
 # 更新日志
 
+## [2026-04-11] - POD 3.0 绩效系统集成
+
+### 新增数据模型
+- `PodOrder`：ERP 订单数据模型（28+字段），支持运营归属自动提取、货币换算、状态分类、赛道分类
+- `PodProduct`：ERP 产品数据模型，支持选品命中率追踪
+
+### 新增后端接口（/api/pod）
+- `POST /upload-orders`：订单 Excel 上传解析（按列名动态映射、去重、运营提取、汇率换算、赛道分类）
+- `POST /upload-products`：产品 Excel 上传解析（店铺名提取运营、赛道分类）
+- `GET /stats`：订单/产品基础统计
+- `GET /operator-kpi`：运营 KPI 排名（出单量、销售额、取消率、命中率）
+- `GET /niche-stats`：赛道维度统计（出单量、SKU 数、运营分布）
+- `GET /sku-grading`：SKU 自动分级（S/A/B/C/D）
+
+### 新增业务规则引擎（pod_order_rules.py）
+- `run_sku_grading`：按 SKU 聚合出单量自动分级（S/A/有效链接/C）
+- `run_operator_kpi`：按运营聚合 KPI（按国家/平台拆分）
+- `run_hit_rate`：选品命中率计算（产品表与订单表交叉匹配）
+- `run_daily_upload_stats`：每日上新数量统计
+- `sync_kpi_records`：自动写入 KPIRecord 激活现有告警/辅导/评分链路
+
+### 新增定时任务
+- 每日 00:30 自动更新汇率（fawazahmed0/exchange-api）
+- 每日 11:00 刷新产品出单状态
+- 每周二 10:00 聚合上周 KPI 并写入 KPIRecord
+
+### 赛道自动分类
+- 关键词映射表优先（13 个赛道、80+ 关键词，约 60% 覆盖率）
+- 未匹配标题可后续用 AI 补分类
+
+### 前端新增运营绩效页面（/pod-performance）
+- Tab 1：数据上传（订单 + 产品 Excel 拖拽上传）
+- Tab 2：运营排名看板（出单量、销售额、取消率、命中率）
+- Tab 3：赛道概览（各赛道出单量、SKU 数、运营分布）
+
+### 现有功能增强
+- `daily_report` / `data_summary` 补充今日订单量和 GMV 数据
+- KPI 数据自动流入现有 coaching_suggestions、check_kpi_alerts、employee_score
+
+---
+
 ## [2026-04-11] - UI 精简：删除 Agent 概览 + 任务创建改为自然语言
 
 ### 删除 Agent 概览 tab

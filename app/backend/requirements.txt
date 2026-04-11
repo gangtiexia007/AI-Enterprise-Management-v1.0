@@ -6,3 +6,4 @@ apscheduler
 httpx
 python-multipart
 openai
+openpyxl

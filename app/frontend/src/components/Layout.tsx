@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, ListTodo, Target, BarChart3, BookOpen, Settings, Users, CheckCircle, FileText, Menu, MessageCircle, Bot, Database, Brain, Search, BookMarked } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Target, BarChart3, BookOpen, Settings, Users, CheckCircle, FileText, Menu, MessageCircle, Bot, Database, Brain, Search, BookMarked, TrendingUp } from 'lucide-react';
 import ChatDrawer from './ChatDrawer';
 
 const NAV_GROUPS = [
@@ -33,6 +33,7 @@ const NAV_GROUPS = [
       { to: '/pod-dashboard', label: '指挥中心', icon: Brain },
       { to: '/pod-analysis', label: '运营分析', icon: Search },
       { to: '/pod-review', label: '复盘沉淀', icon: BookMarked },
+      { to: '/pod-performance', label: '运营绩效', icon: TrendingUp },
     ],
   },
   {
