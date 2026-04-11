@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="千方百计AI - 老板管理助理", version="7.0", lifespan=lifespan)
+app = FastAPI(title="千方百计AI - 老板管理助理", version="8.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,4 +80,4 @@ app.include_router(pod_orders.router, prefix="/api/pod", tags=["pod"])
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "version": "7.0"}
+    return {"status": "ok", "version": "8.0"}

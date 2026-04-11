@@ -349,6 +349,262 @@ def _run_weekly_kpi_aggregate():
         db.close()
 
 
+def _run_weekly_three_questions():
+    """每周一 09:30 为每个运营自动创建三问周报任务，并推送飞书通知。
+    
+    三问：
+    1. 上周上了多少链接？哪条表现最好？
+    2. 本周打算主攻哪个赛道/方向？
+    3. 有没有遇到什么问题需要支持？
+    """
+    from harness.feishu_client import feishu_client
+    db = SessionLocal()
+    try:
+        from models import Employee, Task, TaskStatus
+        from datetime import date, timedelta
+
+        today = date.today()
+        next_friday = today + timedelta(days=(4 - today.weekday()) % 7 or 7)
+        
+        iso = today.isocalendar()
+        week_label = f"{iso[0]}-W{iso[1]:02d}"
+
+        operators = db.query(Employee).filter(
+            Employee.department == "POD运营",
+            Employee.name != "",
+        ).all()
+
+        created = 0
+        for emp in operators:
+            existing = db.query(Task).filter(
+                Task.assignee_name == emp.name,
+                Task.task_type == "pod_weekly_standup",
+                Task.created_at >= today.isoformat(),
+            ).first()
+            if existing:
+                continue
+
+            task = Task(
+                title=f"[{week_label}] 三问周报 — {emp.name}",
+                description=(
+                    f"**本周三问（{week_label}）**\n\n"
+                    "1️⃣ 上周上了多少链接？哪条产品表现最好（出单最多）？\n"
+                    "2️⃣ 本周打算主攻哪个赛道/产品方向？\n"
+                    "3️⃣ 有没有遇到什么问题或需要支持的地方？\n\n"
+                    "请在本周五前回复完成。"
+                ),
+                assignee_id=emp.id,
+                assignee_name=emp.name,
+                deadline=next_friday,
+                status=TaskStatus.DISPATCHED,
+                task_type="pod_weekly_standup",
+                priority="normal",
+            )
+            db.add(task)
+            db.flush()
+
+            if emp.feishu_id:
+                feishu_client.send_task_notification(
+                    emp.feishu_id,
+                    task.title,
+                    task.description,
+                    str(next_friday),
+                    emp.name,
+                )
+            created += 1
+
+        db.commit()
+        _log_scheduled("weekly_three_questions", f"创建了 {created} 个三问周报任务 ({week_label})")
+    except Exception:
+        logger.exception("Error in weekly three questions")
+    finally:
+        db.close()
+
+
+def _run_weekly_kpi_ranking_report():
+    """每周二 10:30 生成上周 KPI 排名并推送飞书给老板/主管。"""
+    from harness.feishu_client import feishu_client
+    db = SessionLocal()
+    try:
+        boss_id = _get_setting("feishu_boss_id")
+        supervisor_id = _get_setting("feishu_supervisor_id", "")
+        if not feishu_client.is_enabled():
+            logger.info("Weekly KPI ranking: Feishu disabled, skipping push")
+            return
+        if not boss_id:
+            logger.info("Weekly KPI ranking: no boss feishu_id configured")
+            return
+
+        from harness.pod_order_rules import run_operator_kpi, run_hit_rate
+        from datetime import date, timedelta
+
+        today = date.today()
+        week_end = today - timedelta(days=today.weekday())
+        week_start = week_end - timedelta(days=7)
+        period_label = f"{week_start.strftime('%m/%d')} ~ {week_end.strftime('%m/%d')}"
+
+        kpi_list = run_operator_kpi(db, period_start=week_start, period_end=week_end)
+        hit_list = run_hit_rate(db)
+        hit_map = {h["operator"]: h["hit_rate"] for h in hit_list}
+
+        kpi_list.sort(key=lambda x: x["total_orders"], reverse=True)
+
+        lines = [f"**运营周报排名** ({period_label})\n"]
+        medals = ["🥇", "🥈", "🥉"]
+        for i, r in enumerate(kpi_list[:10]):
+            medal = medals[i] if i < 3 else f"{i+1}."
+            hit_rate = hit_map.get(r["operator"], 0)
+            lines.append(
+                f"{medal} **{r['operator']}**  "
+                f"出单 {r['total_orders']} | GMV ¥{r['total_gmv_cny']:,.0f} | "
+                f"有效链接 {r['valid_links']} | S爆款 {r['s_level_count']} | "
+                f"命中率 {hit_rate}% | 取消率 {r['cancel_rate']}%"
+            )
+
+        if len(kpi_list) == 0:
+            lines.append("本周暂无出单数据，请确认是否已导入 ERP 订单。")
+
+        report_text = "\n".join(lines)
+        card = feishu_client.build_report_card("本周运营 KPI 排名", report_text, str(today))
+        feishu_client.send_card_message(boss_id, card)
+        if supervisor_id:
+            feishu_client.send_card_message(supervisor_id, card)
+
+        _log_scheduled("weekly_kpi_ranking", f"已推送 {len(kpi_list)} 个运营的周排名")
+    except Exception:
+        logger.exception("Error in weekly KPI ranking report")
+    finally:
+        db.close()
+
+
+def _run_monthly_goals_update():
+    """每月 1 号 08:00 为每个运营创建/更新月度 Goal。"""
+    db = SessionLocal()
+    try:
+        from harness.pod_order_rules import sync_monthly_goals
+        from datetime import date
+
+        today = date.today()
+        if today.month == 1:
+            year, month = today.year - 1, 12
+        else:
+            year, month = today.year, today.month - 1
+
+        count = sync_monthly_goals(db, year=year, month=month)
+        _log_scheduled("monthly_goals_update", f"已同步 {count} 个月度目标 ({year}-{month:02d})")
+    except Exception:
+        logger.exception("Error in monthly goals update")
+    finally:
+        db.close()
+
+
+def _run_monthly_review_push():
+    """每月 1 号 09:00 生成复盘报告并推飞书。"""
+    from harness.feishu_client import feishu_client
+    db = SessionLocal()
+    try:
+        boss_id = _get_setting("feishu_boss_id")
+        if not feishu_client.is_enabled() or not boss_id:
+            logger.info("Monthly review: Feishu disabled or boss_id not set")
+            return
+
+        from harness.pod_order_rules import run_monthly_review
+        review = run_monthly_review(db)
+
+        lines = [f"**{review['period']} 月度复盘报告**\n", f"对比上月：{review['prev_period']}\n"]
+        medals = ["🥇", "🥈", "🥉"]
+        for i, row in enumerate(review["operators"][:10]):
+            medal = medals[i] if i < 3 else f"{i+1}."
+            growth = row["order_growth"]
+            growth_str = f"↑{growth}%" if growth > 0 else (f"↓{abs(growth)}%" if growth < 0 else "持平")
+            lines.append(
+                f"{medal} **{row['operator']}** "
+                f"出单 {row['this_month']['total_orders']} ({growth_str}) | "
+                f"GMV ¥{row['this_month']['total_gmv_cny']:,.0f} | "
+                f"S爆款 {row['this_month']['s_level_count']}"
+            )
+
+        if review.get("top_operator"):
+            lines.append(f"\n🏆 月度第一：**{review['top_operator']}**，恭喜！")
+        if review.get("bottom_operator") and review["total_operators"] > 1:
+            lines.append(f"⚠️ 本月垫底：**{review['bottom_operator']}**，请关注。")
+
+        report_text = "\n".join(lines)
+        card = feishu_client.build_report_card("月度运营复盘", report_text, review["period"])
+        feishu_client.send_card_message(boss_id, card)
+        _log_scheduled("monthly_review_push", f"月度复盘已推送 ({review['period']})")
+    except Exception:
+        logger.exception("Error in monthly review push")
+    finally:
+        db.close()
+
+
+def _run_elimination_alert_check():
+    """每月 2 号检查连续垫底/三问未提交/月度第一，执行预警和奖励通知。"""
+    from harness.feishu_client import feishu_client
+    db = SessionLocal()
+    try:
+        from harness.pod_order_rules import check_elimination_and_rewards
+        from models import Task, TaskStatus, Employee
+
+        alerts = check_elimination_and_rewards(db)
+        boss_id = _get_setting("feishu_boss_id")
+
+        for alert in alerts.get("bottom_alerts", []):
+            msg = (
+                f"⚠️ 绩效预警\n\n"
+                f"运营 **{alert['operator']}** 已连续 {alert['consecutive_months']} 个月出单排名垫底。\n"
+                f"涉及周期：{' / '.join(alert.get('periods', []))}\n\n"
+                f"建议：一对一沟通 + 制定改进计划，或启动人员调整流程。"
+            )
+            if boss_id and feishu_client.is_enabled():
+                feishu_client.send_text_message(boss_id, msg)
+            _log_scheduled("elimination_alert", f"{alert['operator']} 连续垫底预警")
+
+        for missing in alerts.get("standup_missing", []):
+            op_msg = (
+                f"📋 三问周报提醒\n\n"
+                f"你已连续 {missing['missing_weeks']} 周未提交三问周报。\n"
+                f"请尽快补交，否则将影响本月绩效评分。"
+            )
+            feishu_id = missing.get("feishu_id")
+            if feishu_id and feishu_client.is_enabled():
+                feishu_client.send_text_message(feishu_id, op_msg)
+            if boss_id and feishu_client.is_enabled():
+                boss_msg = f"⚠️ {missing['operator']} 已连续 {missing['missing_weeks']} 周未提交三问周报"
+                feishu_client.send_text_message(boss_id, boss_msg)
+            _log_scheduled("standup_missing_alert", f"{missing['operator']} 连续未提交三问")
+
+        top = alerts.get("top_reward")
+        if top and boss_id and feishu_client.is_enabled():
+            msg = (
+                f"🏆 月度第一通知\n\n"
+                f"恭喜 **{top['operator']}** 荣获 {top['period']} 月度运营第一！\n"
+                f"出单量：{top['total_orders']} 单 | GMV：¥{top['total_gmv_cny']:,.0f}\n\n"
+                f"建议：公开表扬 + 经验分享，激励团队。"
+            )
+            feishu_client.send_text_message(boss_id, msg)
+            _log_scheduled("top_reward_notify", f"{top['operator']} 月度第一通知")
+
+    except Exception:
+        logger.exception("Error in elimination alert check")
+    finally:
+        db.close()
+
+
+def _run_ai_niche_batch():
+    """每天 03:00 批量 AI 补分类未命中的赛道。"""
+    db = SessionLocal()
+    try:
+        from harness.pod_order_rules import run_ai_niche_classification
+        count = run_ai_niche_classification(db, batch_size=100)
+        _log_scheduled("ai_niche_batch", f"AI 赛道补分类: {count} 条")
+    except Exception:
+        logger.exception("Error in AI niche batch")
+    finally:
+        db.close()
+
+
 def _log_scheduled(task_type: str, detail: str):
     from models import AuditLog
     db = SessionLocal()
@@ -392,6 +648,12 @@ def start_scheduler():
     _scheduler.add_job(_run_currency_update, CronTrigger(hour=0, minute=30), id="currency_update")
     _scheduler.add_job(_run_product_order_refresh, CronTrigger(hour=11), id="product_order_refresh")
     _scheduler.add_job(_run_weekly_kpi_aggregate, CronTrigger(day_of_week="tue", hour=10), id="weekly_kpi_aggregate")
+    _scheduler.add_job(_run_weekly_three_questions, CronTrigger(day_of_week="mon", hour=9, minute=30), id="weekly_three_questions")
+    _scheduler.add_job(_run_weekly_kpi_ranking_report, CronTrigger(day_of_week="tue", hour=10, minute=30), id="weekly_kpi_ranking_report")
+    _scheduler.add_job(_run_monthly_goals_update, CronTrigger(day=1, hour=8), id="monthly_goals_update")
+    _scheduler.add_job(_run_monthly_review_push, CronTrigger(day=1, hour=9), id="monthly_review_push")
+    _scheduler.add_job(_run_elimination_alert_check, CronTrigger(day=2, hour=9), id="elimination_alert_check")
+    _scheduler.add_job(_run_ai_niche_batch, CronTrigger(hour=3), id="ai_niche_batch")
 
     _scheduler.start()
     logger.info(
@@ -416,4 +678,10 @@ TASK_TYPE_TO_JOB_ID: dict[str, str] = {
     "currency_update": "currency_update",
     "product_refresh": "product_order_refresh",
     "kpi_aggregate": "weekly_kpi_aggregate",
+    "weekly_three_questions": "weekly_three_questions",
+    "weekly_kpi_ranking": "weekly_kpi_ranking_report",
+    "monthly_goals": "monthly_goals_update",
+    "monthly_review": "monthly_review_push",
+    "elimination_alert": "elimination_alert_check",
+    "ai_niche": "ai_niche_batch",
 }

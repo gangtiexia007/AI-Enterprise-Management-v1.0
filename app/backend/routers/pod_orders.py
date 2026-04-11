@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, date
 from io import BytesIO
 
@@ -10,6 +11,7 @@ from database import get_db
 from models import PodOrder, PodProduct, Setting, AuditLog
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +298,14 @@ async def upload_orders(file: UploadFile, db: Session = Depends(get_db)):
         resource_type="pod_order",
     ))
     db.commit()
+
+    # 异步触发月度 Goal 同步（不阻塞响应）
+    try:
+        from harness.pod_order_rules import sync_monthly_goals
+        today = date.today()
+        sync_monthly_goals(db, year=today.year, month=today.month)
+    except Exception as _e:
+        logger.warning(f"Goal sync after order import failed: {_e}")
 
     return {
         "success": True,

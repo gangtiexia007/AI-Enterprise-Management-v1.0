@@ -1,5 +1,29 @@
 # 更新日志
 
+## [2026-04-12] - POD 3.0 P1/P2 自动化全量上线（v8.0）
+
+### P1 新增功能
+- **周一三问周报任务**：每周一 09:30 自动为每位运营创建"三问周报"飞书任务并推送通知（上周链接/最佳产品/本周方向/问题反馈）
+- **周二KPI排名推送**：每周二 10:30 自动聚合上周运营 KPI 排名，以飞书卡片推送给老板/主管
+- **月度Goal自动创建**：每月 1 日自动为每位运营按出单量/销售额/有效链接数创建月度目标，导入订单时实时更新 `current_value`
+- **AI赛道补分类**：每日 03:00 批量调 AI 对关键词未命中（约 40%）的产品标题进行赛道分类，写入 `niche` 字段
+
+### P2 新增功能
+- **月度复盘自动化**：每月 1 日 09:00 聚合上月 KPI 与上上月对比，生成结构化复盘排名并推飞书
+- **淘汰/奖励预警**：
+  - 连续 2 月垫底 → 飞书告警老板
+  - 连续 3 周未提交三问周报 → 飞书提醒当事人 + 通知老板
+  - 月度第一 → 飞书通知老板表彰
+- **AuditLog 全链路审计**：订单/产品导入操作写入 AuditLog（actor/action/detail/resource_type）
+- **月度Goal同步**：上传订单时自动触发本月 Goal `current_value` 更新
+
+### 技术细节
+- `pod_order_rules.py` 新增：`sync_monthly_goals`、`run_monthly_review`、`check_elimination_and_rewards`、`run_ai_niche_classification`
+- `scheduler.py` 新增 7 个定时任务：`weekly_three_questions`、`weekly_kpi_ranking_report`、`monthly_goals_update`、`monthly_review_push`、`elimination_alert_check`、`ai_niche_batch`
+- `pod_orders.py` upload 端点增加 AuditLog 写入 + Goal 自动同步
+
+---
+
 ## [2026-04-11] - POD 3.0 绩效系统集成
 
 ### 新增数据模型

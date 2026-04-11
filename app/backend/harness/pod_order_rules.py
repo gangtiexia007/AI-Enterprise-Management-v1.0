@@ -439,3 +439,353 @@ def _calc_grade(score: float) -> str:
     elif score >= 60:
         return "C"
     return "D"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P1: 月度 Goal 自动创建与更新
+# ─────────────────────────────────────────────────────────────────────────────
+
+def sync_monthly_goals(db: Session, year: int = None, month: int = None) -> int:
+    """为每个运营按月创建或更新 Goal，并从 PodOrder 同步 current_value。
+    
+    Goal 维度（每人每月创建 3 个）:
+    - 总出单量（目标从 pod_kpi_targets 读取）
+    - 销售额 CNY（目标从 pod_kpi_targets 读取）
+    - 有效链接数（目标从 pod_kpi_targets 读取）
+    """
+    from models import Goal, GoalLevel, GoalStatus, Employee
+    from datetime import date as d_cls
+    import calendar
+
+    if not year or not month:
+        today = d_cls.today()
+        year, month = today.year, today.month
+
+    month_start = d_cls(year, month, 1)
+    last_day = calendar.monthrange(year, month)[1]
+    month_end = d_cls(year, month, last_day)
+    period_label = f"{year}-{month:02d}"
+
+    targets = _load_kpi_targets(db)
+    kpi_list = run_operator_kpi(db, period_start=month_start, period_end=month_end)
+
+    count = 0
+    for kpi in kpi_list:
+        op_name = kpi["operator"]
+        employee = db.query(Employee).filter(Employee.name == op_name).first()
+        if not employee:
+            employee = Employee(name=op_name, department="POD运营", position="运营")
+            db.add(employee)
+            db.flush()
+
+        goal_defs = [
+            ("总出单量", kpi["total_orders"], targets.get("总出单量", 200), "单"),
+            ("销售额(CNY)", kpi["total_gmv_cny"], targets.get("销售额(CNY)", 50000), "元"),
+            ("有效链接数", kpi["valid_links"], targets.get("有效链接数", 50), "个"),
+        ]
+
+        for metric_name, current_val, target_val, unit in goal_defs:
+            title = f"{op_name} {period_label} {metric_name}"
+            existing = db.query(Goal).filter(
+                Goal.title == title,
+                Goal.owner == op_name,
+            ).first()
+            if existing:
+                existing.current_value = current_val
+                if current_val >= existing.target_value and existing.target_value > 0:
+                    existing.status = GoalStatus.COMPLETED
+            else:
+                db.add(Goal(
+                    title=title,
+                    level=GoalLevel.INDIVIDUAL,
+                    owner=op_name,
+                    target_value=target_val,
+                    current_value=current_val,
+                    unit=unit,
+                    deadline=month_end,
+                    status=GoalStatus.ACTIVE,
+                ))
+            count += 1
+
+    if kpi_list:
+        db.commit()
+    logger.info("Monthly goals sync: %d goals for %s-%02d", count, year, month)
+    return count
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P1: AI 补分类赛道
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_ai_niche_classification(db: Session, batch_size: int = 50) -> int:
+    """对关键词未命中的标题批量调 AI 归类，写入 niche 字段。
+    
+    同时处理 PodOrder 和 PodProduct 表中 niche="" 的记录。
+    每次最多处理 batch_size 条，避免 AI 调用超时。
+    """
+    from models import PodOrder, PodProduct
+    import asyncio
+
+    niche_names = [
+        "潮牌街头", "复古怀旧", "宗教信仰", "情侣款", "车迷机车",
+        "日系动漫", "运动健身", "宠物", "自然花卉", "旅行城市",
+        "骷髅摇滚", "咖啡生活", "字母潮流",
+    ]
+    niche_list_str = "、".join(niche_names)
+
+    # 收集需分类标题（orders + products）
+    order_rows = (
+        db.query(PodOrder.id, PodOrder.product_title)
+        .filter(PodOrder.niche == "", PodOrder.product_title != "")
+        .limit(batch_size)
+        .all()
+    )
+    product_rows = (
+        db.query(PodProduct.id, PodProduct.product_name)
+        .filter(PodProduct.niche == "", PodProduct.product_name != "")
+        .limit(batch_size)
+        .all()
+    )
+
+    if not order_rows and not product_rows:
+        logger.info("AI niche classification: no records to classify")
+        return 0
+
+    # 合并标题列表
+    items = []
+    for row_id, title in order_rows:
+        items.append(("order", row_id, title))
+    for row_id, title in product_rows:
+        items.append(("product", row_id, title))
+
+    # 构造 AI 提示
+    titles_text = "\n".join(f"{i+1}. {item[2]}" for i, item in enumerate(items))
+    prompt = f"""请为以下产品标题分类到对应赛道，赛道选项：{niche_list_str}、其他。
+每行输出：序号|赛道名（例如：1|潮牌街头），如无法判断归类为"其他"。
+只输出分类结果，不要解释。
+
+{titles_text}"""
+
+    try:
+        from harness.ai_client import ai_client
+
+        async def _call():
+            return await ai_client.chat(
+                [
+                    {"role": "system", "content": "你是电商选品赛道分类专家，精通跨境T恤POD产品赛道划分。"},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=len(items) * 15 + 100,
+            )
+
+        loop = asyncio.new_event_loop()
+        result = loop.run_until_complete(_call())
+        loop.close()
+    except Exception as e:
+        logger.warning(f"AI niche classification failed: {e}")
+        return 0
+
+    # 解析结果
+    classified = 0
+    for line in (result or "").strip().split("\n"):
+        line = line.strip()
+        if "|" not in line:
+            continue
+        parts = line.split("|", 1)
+        try:
+            idx = int(parts[0].strip()) - 1
+            niche = parts[1].strip()
+            if niche == "其他":
+                niche = ""
+            if 0 <= idx < len(items):
+                table_type, row_id, _ = items[idx]
+                if table_type == "order":
+                    obj = db.query(PodOrder).filter(PodOrder.id == row_id).first()
+                else:
+                    obj = db.query(PodProduct).filter(PodProduct.id == row_id).first()
+                if obj and niche:
+                    obj.niche = niche
+                    classified += 1
+        except (ValueError, IndexError):
+            continue
+
+    if classified > 0:
+        db.commit()
+    logger.info("AI niche classification: classified %d / %d records", classified, len(items))
+    return classified
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2: 月度复盘
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_monthly_review(db: Session, year: int = None, month: int = None) -> dict:
+    """每月 1 号聚合上月 KPI，与上上月对比，返回结构化复盘数据。"""
+    from datetime import date as d_cls
+    import calendar
+
+    if not year or not month:
+        today = d_cls.today()
+        # 复盘上月
+        if today.month == 1:
+            year, month = today.year - 1, 12
+        else:
+            year, month = today.year, today.month - 1
+
+    month_start = d_cls(year, month, 1)
+    last_day = calendar.monthrange(year, month)[1]
+    month_end = d_cls(year, month, last_day)
+
+    # 上上月
+    if month == 1:
+        prev_year, prev_month = year - 1, 12
+    else:
+        prev_year, prev_month = year, month - 1
+    prev_start = d_cls(prev_year, prev_month, 1)
+    prev_last = calendar.monthrange(prev_year, prev_month)[1]
+    prev_end = d_cls(prev_year, prev_month, prev_last)
+
+    current_kpi = run_operator_kpi(db, period_start=month_start, period_end=month_end)
+    prev_kpi = run_operator_kpi(db, period_start=prev_start, period_end=prev_end)
+    prev_map = {r["operator"]: r for r in prev_kpi}
+
+    review_rows = []
+    for r in current_kpi:
+        op = r["operator"]
+        prev = prev_map.get(op, {})
+        review_rows.append({
+            "operator": op,
+            "this_month": {
+                "valid_links": r["valid_links"],
+                "s_level_count": r["s_level_count"],
+                "total_orders": r["total_orders"],
+                "total_gmv_cny": r["total_gmv_cny"],
+                "cancel_rate": r["cancel_rate"],
+            },
+            "prev_month": {
+                "valid_links": prev.get("valid_links", 0),
+                "s_level_count": prev.get("s_level_count", 0),
+                "total_orders": prev.get("total_orders", 0),
+                "total_gmv_cny": prev.get("total_gmv_cny", 0),
+                "cancel_rate": prev.get("cancel_rate", 0),
+            },
+            "order_growth": round(
+                (r["total_orders"] - prev.get("total_orders", 0)) / prev.get("total_orders", 1) * 100, 1
+            ) if prev.get("total_orders") else 0,
+            "gmv_growth": round(
+                (r["total_gmv_cny"] - prev.get("total_gmv_cny", 0)) / prev.get("total_gmv_cny", 1) * 100, 1
+            ) if prev.get("total_gmv_cny") else 0,
+        })
+
+    # 排名：按本月出单量
+    review_rows.sort(key=lambda x: x["this_month"]["total_orders"], reverse=True)
+
+    return {
+        "period": f"{year}-{month:02d}",
+        "prev_period": f"{prev_year}-{prev_month:02d}",
+        "operators": review_rows,
+        "total_operators": len(review_rows),
+        "top_operator": review_rows[0]["operator"] if review_rows else None,
+        "bottom_operator": review_rows[-1]["operator"] if len(review_rows) > 1 else None,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# P2: 淘汰/奖励预警
+# ─────────────────────────────────────────────────────────────────────────────
+
+def check_elimination_and_rewards(db: Session) -> dict:
+    """检查连续月度垫底/连续三问未提交/月度第一，返回需要处理的预警列表。
+    
+    返回结构：
+    {
+        "bottom_alerts": [{"operator": str, "consecutive_months": int}],  # 连续2月垫底
+        "standup_missing": [{"operator": str, "missing_weeks": int}],     # 连续3周未提交三问
+        "top_reward": {"operator": str, "period": str},                    # 月度第一
+    }
+    """
+    from models import KPIRecord, Task, TaskStatus, Employee
+    from datetime import date as d_cls
+    import calendar
+
+    today = d_cls.today()
+    results = {"bottom_alerts": [], "standup_missing": [], "top_reward": None}
+
+    # ── 1. 连续两月垫底 ──
+    periods = []
+    for delta in range(2):
+        if today.month - delta < 1:
+            y, m = today.year - 1, today.month - delta + 12
+        else:
+            y, m = today.year, today.month - delta
+        periods.append(f"{y}-{m:02d}")
+
+    # 用周期KPI聚合判断月度垫底
+    monthly_rankings = {}
+    for period in periods:
+        try:
+            y, m = int(period.split("-")[0]), int(period.split("-")[1])
+        except Exception:
+            continue
+        m_start = d_cls(y, m, 1)
+        m_end = d_cls(y, m, calendar.monthrange(y, m)[1])
+        kpi_rows = run_operator_kpi(db, period_start=m_start, period_end=m_end)
+        if kpi_rows:
+            kpi_rows.sort(key=lambda x: x["total_orders"])
+            monthly_rankings[period] = [r["operator"] for r in kpi_rows]
+
+    if len(monthly_rankings) >= 2:
+        all_periods = list(monthly_rankings.keys())
+        bottom_this = monthly_rankings.get(all_periods[0], [])
+        bottom_prev = monthly_rankings.get(all_periods[1], []) if len(all_periods) > 1 else []
+        if bottom_this and bottom_prev:
+            this_bottom = bottom_this[0]
+            prev_bottom = bottom_prev[0]
+            if this_bottom == prev_bottom:
+                results["bottom_alerts"].append({
+                    "operator": this_bottom,
+                    "consecutive_months": 2,
+                    "periods": all_periods,
+                })
+
+    # ── 2. 连续3周未提交三问周报 ──
+    all_ops = db.query(Employee).filter(Employee.department == "POD运营").all()
+    for emp in all_ops:
+        missing_count = 0
+        for week_delta in range(1, 4):
+            check_date = today - __import__("datetime").timedelta(weeks=week_delta)
+            iso = check_date.isocalendar()
+            week_label = f"{iso[0]}-W{iso[1]:02d}"
+            submitted = db.query(Task).filter(
+                Task.assignee_name == emp.name,
+                Task.task_type == "pod_weekly_standup",
+                Task.status.in_([TaskStatus.DONE, TaskStatus.FEEDBACK_SUBMITTED]),
+            ).filter(Task.created_at >= (check_date - __import__("datetime").timedelta(days=7)).isoformat()).count()
+            if submitted == 0:
+                missing_count += 1
+        if missing_count >= 3:
+            results["standup_missing"].append({
+                "operator": emp.name,
+                "feishu_id": emp.feishu_id,
+                "missing_weeks": missing_count,
+            })
+
+    # ── 3. 月度第一 ──
+    if today.day <= 3:  # 月初几天才检查上月第一
+        if today.month == 1:
+            cy, cm = today.year - 1, 12
+        else:
+            cy, cm = today.year, today.month - 1
+        m_start = d_cls(cy, cm, 1)
+        m_end = d_cls(cy, cm, calendar.monthrange(cy, cm)[1])
+        kpi_rows = run_operator_kpi(db, period_start=m_start, period_end=m_end)
+        if kpi_rows:
+            kpi_rows.sort(key=lambda x: x["total_orders"], reverse=True)
+            results["top_reward"] = {
+                "operator": kpi_rows[0]["operator"],
+                "total_orders": kpi_rows[0]["total_orders"],
+                "total_gmv_cny": kpi_rows[0]["total_gmv_cny"],
+                "period": f"{cy}-{cm:02d}",
+            }
+
+    return results
